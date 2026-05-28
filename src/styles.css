@@ -199,6 +199,22 @@ h4 {
   font-size: 13px;
 }
 
+.editor-actions,
+.preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.editor-actions {
+  margin-top: 18px;
+}
+
+.generation-state {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button {
@@ -207,6 +223,11 @@ h4 {
   padding: 0 14px;
   border: 1px solid transparent;
   font-weight: 700;
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .primary-button {
@@ -298,6 +319,33 @@ h4 {
   margin: 0 auto 20px;
   border-radius: 999px;
   background: var(--line);
+}
+
+.generation-banner {
+  margin-bottom: 16px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: #f8fafb;
+  color: var(--muted);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.generation-banner.is-ready {
+  border-color: rgba(18, 107, 103, 0.28);
+  background: #e8f5f2;
+  color: var(--primary-strong);
+}
+
+.generation-banner.is-working {
+  border-color: rgba(155, 92, 0, 0.28);
+  background: #fff5df;
+  color: var(--warning);
+}
+
+.generation-banner.is-pop {
+  animation: pop 0.45s ease;
 }
 
 .preview-meta {
@@ -452,6 +500,43 @@ h4 {
   font-weight: 800;
 }
 
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  max-width: min(360px, calc(100vw - 32px));
+  border: 1px solid rgba(13, 82, 79, 0.2);
+  border-radius: var(--radius);
+  background: #102a28;
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(23, 32, 42, 0.18);
+  opacity: 0;
+  padding: 12px 14px;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 1080px) {
   .workspace,
   .preview-layout {
@@ -470,7 +555,9 @@ h4 {
 
   .topbar,
   .panel-heading,
-  .topbar-actions {
+  .topbar-actions,
+  .editor-actions,
+  .preview-actions {
     align-items: stretch;
     flex-direction: column;
   }

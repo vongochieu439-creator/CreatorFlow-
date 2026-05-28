@@ -60,6 +60,11 @@
               添加互动引导
             </label>
           </div>
+
+          <div class="editor-actions">
+            <button class="primary-button" id="generateBtn" type="button">生成平台稿</button>
+            <span id="generationState" class="generation-state">已根据当前内容生成</span>
+          </div>
         </section>
 
         <section class="preview-panel" aria-label="平台预览区">
@@ -68,7 +73,10 @@
               <h2>平台适配预览</h2>
               <p>选择平台后可查看对应格式、风险提示和模拟发布状态。</p>
             </div>
-            <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
+            <div class="preview-actions">
+              <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
+              <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
+            </div>
           </div>
 
           <div class="platform-grid" id="platformGrid" role="tablist"></div>
@@ -76,6 +84,7 @@
           <div class="preview-layout">
             <article class="phone-preview" aria-label="发布稿预览">
               <div class="phone-topline"></div>
+              <div class="generation-banner" id="generationBanner">等待生成平台稿</div>
               <div class="preview-meta" id="previewMeta"></div>
               <h3 id="previewTitle"></h3>
               <p class="preview-summary" id="previewSummary"></p>
@@ -102,7 +111,8 @@
       </main>
     </div>
 
-    <script src="./src/platforms.js"></script>
-    <script src="./src/app.js"></script>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="./src/runtime.js?v=2026052902"></script>
   </body>
 </html>

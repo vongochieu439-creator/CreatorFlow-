@@ -20,6 +20,7 @@ const elements = {
   cta: document.querySelector("#ctaToggle"),
   platformGrid: document.querySelector("#platformGrid"),
   previewMeta: document.querySelector("#previewMeta"),
+  generationBanner: document.querySelector("#generationBanner"),
   previewTitle: document.querySelector("#previewTitle"),
   previewSummary: document.querySelector("#previewSummary"),
   previewBody: document.querySelector("#previewBody"),
@@ -28,11 +29,16 @@ const elements = {
   metricGrid: document.querySelector("#metricGrid"),
   publishLog: document.querySelector("#publishLog"),
   publishBtn: document.querySelector("#publishBtn"),
+  generateBtn: document.querySelector("#generateBtn"),
+  copyDraftBtn: document.querySelector("#copyDraftBtn"),
+  generationState: document.querySelector("#generationState"),
+  toast: document.querySelector("#toast"),
   loadSampleBtn: document.querySelector("#loadSampleBtn"),
   resetDemoBtn: document.querySelector("#resetDemoBtn"),
 };
 
 let state = loadState();
+let toastTimer = null;
 
 function loadState() {
   const fallback = {
@@ -46,6 +52,7 @@ function loadState() {
       audience: sample.audience,
     },
     publishLog: [],
+    generationCount: 0,
   };
 
   try {
@@ -101,12 +108,17 @@ function renderPlatforms(drafts) {
     button.addEventListener("click", () => {
       state.selectedPlatform = platform.id;
       render();
+      showToast(`已切换到${platform.name}发布稿`);
     });
     elements.platformGrid.appendChild(button);
   });
 }
 
 function renderPreview(draft) {
+  elements.generationBanner.textContent = state.generationCount
+    ? `已生成第 ${state.generationCount} 次：当前为${draft.platformName}版本`
+    : "等待生成平台稿";
+  elements.generationBanner.classList.toggle("is-ready", state.generationCount > 0);
   elements.previewMeta.innerHTML = `<span style="background:${draft.accent}"></span>${draft.platformName} 发布稿`;
   elements.previewTitle.textContent = draft.title;
   elements.previewSummary.textContent = draft.summary;
@@ -169,7 +181,12 @@ function updateFromForm() {
   state.options.tone = elements.tone.value;
   state.options.includeTags = elements.tags.checked;
   state.options.includeCta = elements.cta.checked;
+  elements.generationState.textContent = "正在实时适配";
   render();
+  window.clearTimeout(elements.generationState.dataset.timer);
+  elements.generationState.dataset.timer = window.setTimeout(() => {
+    elements.generationState.textContent = "已根据当前内容生成";
+  }, 500);
 }
 
 function publishAll() {
@@ -184,6 +201,7 @@ function publishAll() {
   }));
   state.publishLog = [...records, ...state.publishLog];
   render();
+  showToast("已完成 4 个平台的模拟发布");
 }
 
 function loadSample() {
@@ -191,6 +209,7 @@ function loadSample() {
   state.options.audience = sample.audience;
   syncForm();
   render();
+  showToast("样例内容已载入");
 }
 
 function resetDemo() {
@@ -198,6 +217,55 @@ function resetDemo() {
   state = loadState();
   syncForm();
   render();
+  showToast("演示数据已重置");
+}
+
+function generateDrafts() {
+  state.generationCount = (state.generationCount || 0) + 1;
+  elements.generationState.textContent = "正在生成平台稿";
+  elements.generationBanner.textContent = "正在生成 4 个平台版本...";
+  elements.generationBanner.classList.add("is-working");
+  elements.generateBtn.disabled = true;
+  elements.generateBtn.textContent = "生成中";
+  window.setTimeout(() => {
+    render();
+    elements.generateBtn.disabled = false;
+    elements.generateBtn.textContent = "重新生成平台稿";
+    elements.generationState.textContent = "已生成 4 个平台版本";
+    elements.generationBanner.classList.remove("is-working");
+    elements.generationBanner.classList.add("is-pop");
+    window.setTimeout(() => elements.generationBanner.classList.remove("is-pop"), 450);
+    showToast("公众号、知乎、B站、小红书稿件已生成");
+  }, 320);
+}
+
+async function copyCurrentDraft() {
+  const draft = getDrafts()[state.selectedPlatform];
+  const text = [
+    draft.title,
+    "",
+    draft.summary,
+    "",
+    ...draft.body,
+    "",
+    draft.tags.map((tag) => `#${tag}`).join(" "),
+  ].join("\n");
+
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(`已复制${draft.platformName}发布稿`);
+  } catch {
+    showToast("当前浏览器不支持自动复制，可手动选中预览内容");
+  }
+}
+
+function showToast(message) {
+  window.clearTimeout(toastTimer);
+  elements.toast.textContent = message;
+  elements.toast.classList.add("is-visible");
+  toastTimer = window.setTimeout(() => {
+    elements.toast.classList.remove("is-visible");
+  }, 2200);
 }
 
 ["input", "change"].forEach((eventName) => {
@@ -207,6 +275,8 @@ function resetDemo() {
 });
 
 elements.publishBtn.addEventListener("click", publishAll);
+elements.generateBtn.addEventListener("click", generateDrafts);
+elements.copyDraftBtn.addEventListener("click", copyCurrentDraft);
 elements.loadSampleBtn.addEventListener("click", loadSample);
 elements.resetDemoBtn.addEventListener("click", resetDemo);
 
