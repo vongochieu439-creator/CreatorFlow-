@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CreatorFlow 多平台内容发布助手</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">CreatorFlow</p>
+          <h1>多平台内容智能发布助手</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="status-pill">本地演示版</span>
+          <button class="ghost-button" id="resetDemoBtn" type="button">重置示例</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="editor-panel" aria-label="内容输入区">
+          <div class="panel-heading">
+            <div>
+              <h2>原始内容</h2>
+              <p>输入一篇通用稿，系统会按平台语气、结构和限制生成发布稿。</p>
+            </div>
+            <button class="secondary-button" id="loadSampleBtn" type="button">载入样例</button>
+          </div>
+
+          <label class="field-label" for="sourceTitle">标题</label>
+          <input id="sourceTitle" class="text-input" type="text" maxlength="80" />
+
+          <label class="field-label" for="sourceBody">正文</label>
+          <textarea id="sourceBody" class="content-input" spellcheck="false"></textarea>
+
+          <div class="settings-grid">
+            <label class="field">
+              <span>目标受众</span>
+              <input id="audienceInput" class="text-input" type="text" />
+            </label>
+            <label class="field">
+              <span>改写语气</span>
+              <select id="toneSelect" class="text-input">
+                <option value="balanced">清晰稳重</option>
+                <option value="friendly">轻松亲切</option>
+                <option value="expert">专业分析</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="toggle-row">
+            <label>
+              <input id="tagToggle" type="checkbox" checked />
+              自动生成标签
+            </label>
+            <label>
+              <input id="ctaToggle" type="checkbox" checked />
+              添加互动引导
+            </label>
+          </div>
+        </section>
+
+        <section class="preview-panel" aria-label="平台预览区">
+          <div class="panel-heading compact">
+            <div>
+              <h2>平台适配预览</h2>
+              <p>选择平台后可查看对应格式、风险提示和模拟发布状态。</p>
+            </div>
+            <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
+          </div>
+
+          <div class="platform-grid" id="platformGrid" role="tablist"></div>
+
+          <div class="preview-layout">
+            <article class="phone-preview" aria-label="发布稿预览">
+              <div class="phone-topline"></div>
+              <div class="preview-meta" id="previewMeta"></div>
+              <h3 id="previewTitle"></h3>
+              <p class="preview-summary" id="previewSummary"></p>
+              <div class="preview-body" id="previewBody"></div>
+              <div class="tag-list" id="previewTags"></div>
+            </article>
+
+            <aside class="inspector" aria-label="适配分析">
+              <div>
+                <h3>适配检查</h3>
+                <ul class="check-list" id="checkList"></ul>
+              </div>
+              <div>
+                <h3>内容指标</h3>
+                <div class="metric-grid" id="metricGrid"></div>
+              </div>
+              <div>
+                <h3>发布记录</h3>
+                <div class="publish-log" id="publishLog"></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./src/platforms.js"></script>
+    <script src="./src/app.js"></script>
+  </body>
+</html>
