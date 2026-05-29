@@ -35,6 +35,14 @@
           <label class="field-label" for="sourceBody">正文</label>
           <textarea id="sourceBody" class="content-input" spellcheck="false"></textarea>
 
+          <label class="field-label" for="sampleInput">参考样本</label>
+          <textarea
+            id="sampleInput"
+            class="sample-input"
+            spellcheck="false"
+            placeholder="可粘贴 1-3 篇平台优质内容样本，AI 会分析标题、开头、结构和标签规律；不会复制原文。"
+          ></textarea>
+
           <div class="settings-grid">
             <label class="field">
               <span>目标受众</span>
@@ -75,7 +83,7 @@
             </div>
             <div class="preview-actions">
               <button class="secondary-button" id="analyzeBtn" type="button">AI分析爆款规律</button>
-              <button class="secondary-button" id="realAiBtn" type="button">调用真实AI</button>
+              <button class="secondary-button" id="realAiBtn" type="button">AI渲染</button>
               <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
               <button class="secondary-button" id="exportBtn" type="button">导出全部稿</button>
               <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
@@ -130,6 +138,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052907"></script>
+    <script src="./src/runtime.js?v=2026052908"></script>
   </body>
 </html>

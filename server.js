@@ -3,10 +3,29 @@ const fs = require("fs");
 const path = require("path");
 
 const root = __dirname;
+loadEnvFile(path.join(root, ".env"));
+
 const preferredPort = Number(process.env.PORT || 5173);
 const apiBaseUrl = process.env.AI_API_BASE_URL || "";
 const apiKey = process.env.AI_API_KEY || "";
 const model = process.env.AI_MODEL || "";
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  const content = fs.readFileSync(filePath, "utf8");
+  content.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return;
+    const index = trimmed.indexOf("=");
+    if (index <= 0) return;
+    const key = trimmed.slice(0, index).trim();
+    const rawValue = trimmed.slice(index + 1).trim();
+    const value = rawValue.replace(/^["']|["']$/g, "");
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  });
+}
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -50,9 +69,20 @@ async function handleGenerate(req, res) {
     return;
   }
 
+  let endpoint;
+  try {
+    endpoint = new URL(`${apiBaseUrl.replace(/\/$/, "")}/chat/completions`);
+  } catch {
+    sendJson(res, 400, {
+      error:
+        "AI_API_BASE_URL is invalid. It should look like https://your-openai-compatible-endpoint/v1, not an API key.",
+    });
+    return;
+  }
+
   const payload = await readJson(req);
   const prompt = buildPrompt(payload);
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/chat/completions`, {
+  const response = await fetch(endpoint.href, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -103,8 +133,12 @@ function buildPrompt(payload) {
         "Preserve the user's original meaning.",
         "Generate Chinese content.",
         "For each platform, return strategy and draft.",
+        "If reference samples are provided, analyze their reusable structure only: title patterns, openings, body rhythm, tags and interaction style.",
+        "Never copy sentences from reference samples into the final draft.",
+        "Mention risks if sample style is clickbait, exaggerated or not suitable for the user's source.",
       ],
       source: payload.source,
+      referenceSamples: payload.source && Array.isArray(payload.source.samples) ? payload.source.samples : [],
       platforms: payload.platforms,
       outputSchema: {
         platforms: [

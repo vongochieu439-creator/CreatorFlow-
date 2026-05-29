@@ -48,6 +48,7 @@
   var draftVersions = {};
   var aiDrafts = {};
   var aiSource = "\u672c\u5730\u6a21\u62df";
+  var sampleSource = "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c";
   var publishRecords = [];
   var toastTimer = null;
 
@@ -98,11 +99,22 @@
     return {
       title: text(byId("sourceTitle").value).trim() || "\u672a\u547d\u540d\u5185\u5bb9",
       body: text(byId("sourceBody").value).trim() || "\u8bf7\u5148\u8f93\u5165\u8981\u53d1\u5e03\u7684\u5185\u5bb9\u3002",
+      samples: parseSamples(text(byId("sampleInput").value)),
       audience: text(byId("audienceInput").value).trim() || "\u76ee\u6807\u8bfb\u8005",
       tone: text(byId("toneSelect").value),
       includeTags: byId("tagToggle").checked,
       includeCta: byId("ctaToggle").checked,
     };
+  }
+
+  function parseSamples(value) {
+    return value
+      .split(/\n\s*---+\s*\n|\n\s*###\s*\n/)
+      .map(function (item) {
+        return item.trim();
+      })
+      .filter(Boolean)
+      .slice(0, 3);
   }
 
   function splitLines(body) {
@@ -182,6 +194,7 @@
         { ok: tags.length > 0, text: "\u5df2\u751f\u6210\u5e73\u53f0\u5206\u53d1\u6807\u7b7e" },
         { ok: analysisCount > 0, text: "\u5df2\u7ed3\u5408 AI \u5e73\u53f0\u7206\u6b3e\u5206\u6790\u7b56\u7565" },
         { ok: aiSource !== "\u672c\u5730\u6a21\u62df", text: aiSource !== "\u672c\u5730\u6a21\u62df" ? "\u5f53\u524d\u7a3f\u4ef6\u6765\u81ea\u771f\u5b9e API" : "\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df\u7b56\u7565" },
+        { ok: sampleSource !== "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c", text: sampleSource },
         { ok: Boolean(editedDrafts[platform.id]), text: editedDrafts[platform.id] ? "\u5df2\u4fdd\u5b58\u624b\u52a8\u7f16\u8f91\u7248\u672c" : "AI \u751f\u6210\u7a3f\u9700\u8981\u4eba\u5de5\u786e\u8ba4\u540e\u518d\u53d1\u5e03" },
         { ok: true, text: "\u672a\u76f4\u63a5\u590d\u5236\u53c2\u8003\u7206\u6b3e\u8868\u8fbe\uff0c\u4ec5\u4f7f\u7528\u7ed3\u6784\u7b56\u7565" },
         { ok: true, text: "\u5df2\u6309" + platform.name + "\u98ce\u683c\u91cd\u7ec4" },
@@ -255,15 +268,16 @@
 
   async function callRealAi() {
     byId("realAiBtn").disabled = true;
-    byId("realAiBtn").textContent = "\u8c03\u7528\u4e2d";
-    byId("generationState").textContent = "\u6b63\u5728\u8bf7\u6c42\u672c\u5730 AI \u4ee3\u7406";
+    byId("realAiBtn").textContent = "AI\u6e32\u67d3\u4e2d";
+    byId("generationState").textContent = "\u6b63\u5728\u7528 AI \u6e32\u67d3\u591a\u5e73\u53f0\u7a3f";
 
     try {
+      var input = getInput();
       var response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source: getInput(),
+          source: input,
           platforms: platforms.map(function (platform) {
             return {
               id: platform.id,
@@ -281,19 +295,24 @@
       }
       applyAiResponse(data);
       aiSource = "\u771f\u5b9e API";
+      sampleSource = input.samples.length ? "\u7b56\u7565\u6765\u6e90\uff1a\u7528\u6237\u53c2\u8003\u6837\u672c + \u771f\u5b9e API" : "\u7b56\u7565\u6765\u6e90\uff1a\u5e73\u53f0\u753b\u50cf + \u771f\u5b9e API";
       analysisCount += 1;
       generationCount += 1;
       editedDrafts = {};
       render();
-      byId("generationState").textContent = "\u5df2\u4f7f\u7528\u771f\u5b9e API \u751f\u6210\u5e73\u53f0\u7a3f";
-      showToast("\u771f\u5b9e API \u751f\u6210\u5b8c\u6210");
+      byId("generationState").textContent = "\u5df2\u5b8c\u6210 AI \u6e32\u67d3";
+      showToast("AI \u6e32\u67d3\u5b8c\u6210");
     } catch (error) {
       aiSource = "\u672c\u5730\u6a21\u62df";
-      showToast(error.message + "\uff0c\u5df2\u4fdd\u7559\u672c\u5730\u6a21\u62df");
-      byId("generationState").textContent = "\u771f\u5b9e API \u672a\u542f\u7528\uff0c\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df";
+      sampleSource = "\u771f\u5b9e API \u672a\u751f\u6548\uff0c\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df";
+      var message = error.message && error.message.indexOf("AI API is not configured") >= 0
+        ? "\u672a\u914d\u7f6e AI API\uff0c\u5df2\u4fdd\u7559\u672c\u5730\u6a21\u62df\u7ed3\u679c"
+        : error.message + "\uff0c\u5df2\u4fdd\u7559\u672c\u5730\u6a21\u62df";
+      showToast(message);
+      byId("generationState").textContent = "\u672a\u914d\u7f6e AI API\uff0c\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df";
     } finally {
       byId("realAiBtn").disabled = false;
-      byId("realAiBtn").textContent = "\u8c03\u7528\u771f\u5b9eAI";
+      byId("realAiBtn").textContent = "AI\u6e32\u67d3";
     }
   }
 
@@ -405,7 +424,7 @@
     var current = edited || draftToParts(draft);
     var previewBody = current.body;
     byId("generationBanner").textContent = generationCount
-      ? "\u5df2\u751f\u6210\u7b2c " + generationCount + " \u6b21\uff1a" + aiSource + " · \u5f53\u524d\u4e3a" + draft.platform.name + "\u7248\u672c"
+      ? "\u5df2\u751f\u6210\u7b2c " + generationCount + " \u6b21\uff1a" + aiSource + " · " + sampleSource + " · \u5f53\u524d\u4e3a" + draft.platform.name + "\u7248\u672c"
       : "\u7b49\u5f85\u751f\u6210\u5e73\u53f0\u7a3f";
     byId("generationBanner").classList.toggle("is-ready", generationCount > 0);
     byId("previewMeta").innerHTML = '<span style="background:' + draft.platform.accent + '"></span>' + draft.platform.name + " \u53d1\u5e03\u7a3f";
@@ -519,6 +538,7 @@
   function generate() {
     generationCount += 1;
     aiSource = "\u672c\u5730\u6a21\u62df";
+    sampleSource = "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c";
     aiDrafts = {};
     byId("generateBtn").textContent = "\u751f\u6210\u4e2d";
     byId("generateBtn").disabled = true;
@@ -585,6 +605,7 @@
       "- \u539f\u59cb\u6807\u9898\uff1a" + input.title,
       "- \u76ee\u6807\u53d7\u4f17\uff1a" + input.audience,
       "- AI \u7206\u6b3e\u5206\u6790\uff1a" + (analysisCount ? "\u5df2\u5b8c\u6210" : "\u672a\u624b\u52a8\u89e6\u53d1\uff0c\u4f7f\u7528\u9884\u7f6e\u7b56\u7565"),
+      "- \u7b56\u7565\u6765\u6e90\uff1a" + sampleSource,
       "",
     ];
 
@@ -688,6 +709,7 @@
   function loadSample() {
     byId("sourceTitle").value = "\u5982\u4f55\u628a\u4e00\u7bc7\u5185\u5bb9\u9ad8\u6548\u53d1\u5e03\u5230\u591a\u4e2a\u5e73\u53f0";
     byId("sourceBody").value = "\u5f88\u591a\u521b\u4f5c\u8005\u4f1a\u5148\u5199\u4e00\u7bc7\u5b8c\u6574\u7a3f\u4ef6\uff0c\u518d\u5206\u522b\u590d\u5236\u5230\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7b49\u5e73\u53f0\u3002\n\n\u66f4\u597d\u7684\u65b9\u5f0f\u662f\u4fdd\u7559\u540c\u4e00\u4e2a\u6838\u5fc3\u89c2\u70b9\uff0c\u518d\u9488\u5bf9\u5e73\u53f0\u8fdb\u884c\u683c\u5f0f\u5316\u9002\u914d\u3002\n\n\u8fd9\u4e2a\u5de5\u5177\u5e0c\u671b\u628a\u91cd\u590d\u52b3\u52a8\u81ea\u52a8\u5316\uff0c\u8f93\u5165\u4e00\u4efd\u4e3b\u7a3f\u5c31\u80fd\u751f\u6210\u4e0d\u540c\u5e73\u53f0\u7248\u672c\u3002";
+    byId("sampleInput").value = "\u6837\u672c1\uff1a\u65b0\u624b\u505a\u5185\u5bb9\u6700\u5bb9\u6613\u5361\u5728\u4e00\u7a3f\u591a\u53d1\uff0c\u5efa\u8bae\u5148\u62c6\u5e73\u53f0\u89c4\u5219\uff0c\u518d\u6539\u6807\u9898\u548c\u7ed3\u6784\u3002\n---\n\u6837\u672c2\uff1a\u4e0d\u8981\u76f4\u63a5\u590d\u5236\u540c\u4e00\u7bc7\u7b14\u8bb0\uff0c\u5c0f\u7ea2\u4e66\u8981\u6e05\u5355\u5316\uff0c\u77e5\u4e4e\u8981\u8bb2\u903b\u8f91\uff0cB\u7ad9\u8981\u7ed9\u770b\u70b9\u65f6\u95f4\u8f74\u3002";
     byId("audienceInput").value = "\u4e2a\u4eba\u521b\u4f5c\u8005\u548c\u65b0\u5a92\u4f53\u8fd0\u8425";
     render();
     showToast("\u6837\u4f8b\u5185\u5bb9\u5df2\u8f7d\u5165");
@@ -696,6 +718,7 @@
   function resetDemo() {
     byId("sourceTitle").value = "";
     byId("sourceBody").value = "";
+    byId("sampleInput").value = "";
     byId("audienceInput").value = "";
     generationCount = 0;
     analysisCount = 0;
@@ -704,6 +727,7 @@
     draftVersions = {};
     aiDrafts = {};
     aiSource = "\u672c\u5730\u6a21\u62df";
+    sampleSource = "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c";
     publishRecords = [];
     render();
     showToast("\u6f14\u793a\u6570\u636e\u5df2\u91cd\u7f6e");
@@ -720,7 +744,7 @@
   }
 
   function bind() {
-    ["sourceTitle", "sourceBody", "audienceInput", "toneSelect", "tagToggle", "ctaToggle"].forEach(function (id) {
+    ["sourceTitle", "sourceBody", "sampleInput", "audienceInput", "toneSelect", "tagToggle", "ctaToggle"].forEach(function (id) {
       byId(id).addEventListener("input", render);
       byId(id).addEventListener("change", render);
     });

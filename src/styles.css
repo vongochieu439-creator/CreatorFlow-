@@ -178,8 +178,22 @@ h4 {
   line-height: 1.7;
 }
 
+.sample-input {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfcfd;
+  color: var(--ink);
+  outline: none;
+  padding: 12px;
+  line-height: 1.6;
+}
+
 .text-input:focus,
-.content-input:focus {
+.content-input:focus,
+.sample-input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(18, 107, 103, 0.12);
 }
@@ -223,6 +237,7 @@ h4 {
   padding: 0 14px;
   border: 1px solid transparent;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .primary-button:disabled {
