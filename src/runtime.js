@@ -46,6 +46,8 @@
   var platformStrategies = {};
   var editedDrafts = {};
   var draftVersions = {};
+  var aiDrafts = {};
+  var aiSource = "\u672c\u5730\u6a21\u62df";
   var publishRecords = [];
   var toastTimer = null;
 
@@ -115,10 +117,18 @@
 
   function makeDraft(platform, input) {
     var strategy = platformStrategies[platform.id] || strategyTemplates[platform.id];
+    var aiDraft = aiDrafts[platform.id];
     var lines = splitLines(input.body);
     var body = [];
     var title = input.title;
     var summary = "";
+
+    if (aiDraft) {
+      title = cut(aiDraft.title || input.title, platform.maxTitle);
+      summary = aiDraft.summary || "";
+      body = Array.isArray(aiDraft.body) && aiDraft.body.length ? aiDraft.body : lines;
+      return buildDraft(platform, strategy, input, title, summary, body, aiDraft.tags);
+    }
 
     if (platform.id === "wechat") {
       title = cut(input.audience + "\u5fc5\u6536\u85cf\uff1a" + input.title, platform.maxTitle);
@@ -148,9 +158,12 @@
       body.push("\u5982\u679c\u8fd9\u4efd\u7a3f\u4ef6\u6709\u5e2e\u52a9\uff0c\u53ef\u4ee5\u5148\u6536\u85cf\uff0c\u53d1\u5e03\u524d\u518d\u5bf9\u7167\u68c0\u67e5\u3002");
     }
 
-    var plainText = body.join("");
-    var tags = input.includeTags ? makeTags(platform, input) : [];
+    return buildDraft(platform, strategy, input, title, summary, body);
+  }
 
+  function buildDraft(platform, strategy, input, title, summary, body, apiTags) {
+    var plainText = body.join("");
+    var tags = input.includeTags ? (apiTags && apiTags.length ? apiTags : makeTags(platform, input)) : [];
     return {
       platform: platform,
       title: title,
@@ -168,6 +181,7 @@
         { ok: plainText.length >= platform.minLength && plainText.length <= platform.maxLength, text: "\u6b63\u6587\u5efa\u8bae " + platform.minLength + "-" + platform.maxLength + " \u5b57" },
         { ok: tags.length > 0, text: "\u5df2\u751f\u6210\u5e73\u53f0\u5206\u53d1\u6807\u7b7e" },
         { ok: analysisCount > 0, text: "\u5df2\u7ed3\u5408 AI \u5e73\u53f0\u7206\u6b3e\u5206\u6790\u7b56\u7565" },
+        { ok: aiSource !== "\u672c\u5730\u6a21\u62df", text: aiSource !== "\u672c\u5730\u6a21\u62df" ? "\u5f53\u524d\u7a3f\u4ef6\u6765\u81ea\u771f\u5b9e API" : "\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df\u7b56\u7565" },
         { ok: Boolean(editedDrafts[platform.id]), text: editedDrafts[platform.id] ? "\u5df2\u4fdd\u5b58\u624b\u52a8\u7f16\u8f91\u7248\u672c" : "AI \u751f\u6210\u7a3f\u9700\u8981\u4eba\u5de5\u786e\u8ba4\u540e\u518d\u53d1\u5e03" },
         { ok: true, text: "\u672a\u76f4\u63a5\u590d\u5236\u53c2\u8003\u7206\u6b3e\u8868\u8fbe\uff0c\u4ec5\u4f7f\u7528\u7ed3\u6784\u7b56\u7565" },
         { ok: true, text: "\u5df2\u6309" + platform.name + "\u98ce\u683c\u91cd\u7ec4" },
@@ -239,6 +253,94 @@
     }, 360);
   }
 
+  async function callRealAi() {
+    byId("realAiBtn").disabled = true;
+    byId("realAiBtn").textContent = "\u8c03\u7528\u4e2d";
+    byId("generationState").textContent = "\u6b63\u5728\u8bf7\u6c42\u672c\u5730 AI \u4ee3\u7406";
+
+    try {
+      var response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: getInput(),
+          platforms: platforms.map(function (platform) {
+            return {
+              id: platform.id,
+              name: platform.name,
+              profile: platform.profile,
+              maxTitle: platform.maxTitle,
+              lengthRange: [platform.minLength, platform.maxLength],
+            };
+          }),
+        }),
+      });
+      var data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "\u771f\u5b9e AI \u8bf7\u6c42\u5931\u8d25");
+      }
+      applyAiResponse(data);
+      aiSource = "\u771f\u5b9e API";
+      analysisCount += 1;
+      generationCount += 1;
+      editedDrafts = {};
+      render();
+      byId("generationState").textContent = "\u5df2\u4f7f\u7528\u771f\u5b9e API \u751f\u6210\u5e73\u53f0\u7a3f";
+      showToast("\u771f\u5b9e API \u751f\u6210\u5b8c\u6210");
+    } catch (error) {
+      aiSource = "\u672c\u5730\u6a21\u62df";
+      showToast(error.message + "\uff0c\u5df2\u4fdd\u7559\u672c\u5730\u6a21\u62df");
+      byId("generationState").textContent = "\u771f\u5b9e API \u672a\u542f\u7528\uff0c\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df";
+    } finally {
+      byId("realAiBtn").disabled = false;
+      byId("realAiBtn").textContent = "\u8c03\u7528\u771f\u5b9eAI";
+    }
+  }
+
+  function applyAiResponse(data) {
+    var list = Array.isArray(data.platforms) ? data.platforms : [];
+    var nextStrategies = {};
+    var nextDrafts = {};
+
+    list.forEach(function (item) {
+      if (!item || !item.id) return;
+      if (item.strategy) {
+        nextStrategies[item.id] = normalizeStrategy(item.id, item.strategy);
+      }
+      if (item.draft) {
+        nextDrafts[item.id] = normalizeDraft(item.draft);
+      }
+    });
+
+    if (!Object.keys(nextDrafts).length) {
+      throw new Error("\u6a21\u578b\u8fd4\u56de\u7ed3\u6784\u4e2d\u6ca1\u6709 draft");
+    }
+
+    platformStrategies = Object.assign({}, platformStrategies, nextStrategies);
+    aiDrafts = nextDrafts;
+  }
+
+  function normalizeStrategy(platformId, strategy) {
+    var fallback = strategyTemplates[platformId];
+    return {
+      headline: String(strategy.headline || fallback.headline),
+      titlePatterns: Array.isArray(strategy.titlePatterns) && strategy.titlePatterns.length ? strategy.titlePatterns.map(String) : fallback.titlePatterns,
+      opening: String(strategy.opening || fallback.opening),
+      structure: Array.isArray(strategy.structure) && strategy.structure.length ? strategy.structure.map(String) : fallback.structure,
+      tags: Array.isArray(strategy.tags) && strategy.tags.length ? strategy.tags.map(String) : fallback.tags,
+      risk: String(strategy.risk || fallback.risk),
+    };
+  }
+
+  function normalizeDraft(draft) {
+    return {
+      title: String(draft.title || ""),
+      summary: String(draft.summary || ""),
+      body: Array.isArray(draft.body) ? draft.body.map(String).filter(Boolean) : [],
+      tags: Array.isArray(draft.tags) ? draft.tags.map(String).filter(Boolean) : [],
+    };
+  }
+
   function buildStrategy(platform, input) {
     var template = strategyTemplates[platform.id];
     return {
@@ -303,7 +405,7 @@
     var current = edited || draftToParts(draft);
     var previewBody = current.body;
     byId("generationBanner").textContent = generationCount
-      ? "\u5df2\u751f\u6210\u7b2c " + generationCount + " \u6b21\uff1a\u5f53\u524d\u4e3a" + draft.platform.name + "\u7248\u672c"
+      ? "\u5df2\u751f\u6210\u7b2c " + generationCount + " \u6b21\uff1a" + aiSource + " · \u5f53\u524d\u4e3a" + draft.platform.name + "\u7248\u672c"
       : "\u7b49\u5f85\u751f\u6210\u5e73\u53f0\u7a3f";
     byId("generationBanner").classList.toggle("is-ready", generationCount > 0);
     byId("previewMeta").innerHTML = '<span style="background:' + draft.platform.accent + '"></span>' + draft.platform.name + " \u53d1\u5e03\u7a3f";
@@ -416,6 +518,8 @@
 
   function generate() {
     generationCount += 1;
+    aiSource = "\u672c\u5730\u6a21\u62df";
+    aiDrafts = {};
     byId("generateBtn").textContent = "\u751f\u6210\u4e2d";
     byId("generateBtn").disabled = true;
     byId("generationState").textContent = "\u6b63\u5728\u751f\u6210 4 \u4e2a\u5e73\u53f0\u7248\u672c";
@@ -598,6 +702,8 @@
     platformStrategies = {};
     editedDrafts = {};
     draftVersions = {};
+    aiDrafts = {};
+    aiSource = "\u672c\u5730\u6a21\u62df";
     publishRecords = [];
     render();
     showToast("\u6f14\u793a\u6570\u636e\u5df2\u91cd\u7f6e");
@@ -620,6 +726,7 @@
     });
     byId("generateBtn").addEventListener("click", generate);
     byId("analyzeBtn").addEventListener("click", analyzePlatformTrends);
+    byId("realAiBtn").addEventListener("click", callRealAi);
     byId("publishBtn").addEventListener("click", publishAll);
     byId("copyDraftBtn").addEventListener("click", copyCurrent);
     byId("exportBtn").addEventListener("click", exportAllDrafts);
