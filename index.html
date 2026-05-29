@@ -104,6 +104,15 @@
                 <div class="metric-grid" id="metricGrid"></div>
               </div>
               <div>
+                <h3>人工微调</h3>
+                <textarea id="manualDraftInput" class="manual-draft-input" aria-label="人工微调发布稿"></textarea>
+                <div class="manual-actions">
+                  <button class="secondary-button" id="saveEditBtn" type="button">保存微调</button>
+                  <button class="ghost-button" id="restoreDraftBtn" type="button">恢复AI稿</button>
+                </div>
+                <p class="manual-note">发布和复制会优先使用已保存的人工稿。</p>
+              </div>
+              <div>
                 <h3>发布记录</h3>
                 <div class="publish-log" id="publishLog"></div>
               </div>
@@ -115,6 +124,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052903"></script>
+    <script src="./src/runtime.js?v=2026052904"></script>
   </body>
 </html>

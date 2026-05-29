@@ -44,6 +44,7 @@
   var generationCount = 0;
   var analysisCount = 0;
   var platformStrategies = {};
+  var editedDrafts = {};
   var publishRecords = [];
   var toastTimer = null;
 
@@ -166,6 +167,8 @@
         { ok: plainText.length >= platform.minLength && plainText.length <= platform.maxLength, text: "\u6b63\u6587\u5efa\u8bae " + platform.minLength + "-" + platform.maxLength + " \u5b57" },
         { ok: tags.length > 0, text: "\u5df2\u751f\u6210\u5e73\u53f0\u5206\u53d1\u6807\u7b7e" },
         { ok: analysisCount > 0, text: "\u5df2\u7ed3\u5408 AI \u5e73\u53f0\u7206\u6b3e\u5206\u6790\u7b56\u7565" },
+        { ok: Boolean(editedDrafts[platform.id]), text: editedDrafts[platform.id] ? "\u5df2\u4fdd\u5b58\u4eba\u5de5\u5fae\u8c03\u7a3f" : "AI \u751f\u6210\u7a3f\u9700\u8981\u4eba\u5de5\u786e\u8ba4\u540e\u518d\u53d1\u5e03" },
+        { ok: true, text: "\u672a\u76f4\u63a5\u590d\u5236\u53c2\u8003\u7206\u6b3e\u8868\u8fbe\uff0c\u4ec5\u4f7f\u7528\u7ed3\u6784\u7b56\u7565" },
         { ok: true, text: "\u5df2\u6309" + platform.name + "\u98ce\u683c\u91cd\u7ec4" },
       ],
     };
@@ -212,6 +215,7 @@
     renderPreview(activeDraft);
     renderChecks(activeDraft);
     renderMetrics(activeDraft);
+    renderManualEditor(activeDraft);
     renderPublishLog();
   }
 
@@ -293,17 +297,19 @@
   }
 
   function renderPreview(draft) {
+    var editedText = editedDrafts[draft.platform.id];
+    var previewBody = editedText ? splitLines(editedText) : draft.body;
     byId("generationBanner").textContent = generationCount
       ? "\u5df2\u751f\u6210\u7b2c " + generationCount + " \u6b21\uff1a\u5f53\u524d\u4e3a" + draft.platform.name + "\u7248\u672c"
       : "\u7b49\u5f85\u751f\u6210\u5e73\u53f0\u7a3f";
     byId("generationBanner").classList.toggle("is-ready", generationCount > 0);
     byId("previewMeta").innerHTML = '<span style="background:' + draft.platform.accent + '"></span>' + draft.platform.name + " \u53d1\u5e03\u7a3f";
     byId("previewTitle").textContent = draft.title;
-    byId("previewSummary").textContent = draft.summary;
+    byId("previewSummary").textContent = editedText ? "\u5f53\u524d\u9884\u89c8\u4f7f\u7528\u5df2\u4fdd\u5b58\u7684\u4eba\u5de5\u5fae\u8c03\u7a3f\u3002" : draft.summary;
 
     var body = byId("previewBody");
     body.innerHTML = "";
-    draft.body.forEach(function (line) {
+    previewBody.forEach(function (line) {
       var el = document.createElement(line.length <= 8 ? "h4" : "p");
       el.textContent = line;
       body.appendChild(el);
@@ -316,6 +322,12 @@
       chip.textContent = "#" + tag;
       tags.appendChild(chip);
     });
+  }
+
+  function renderManualEditor(draft) {
+    var input = byId("manualDraftInput");
+    if (document.activeElement === input) return;
+    input.value = editedDrafts[draft.platform.id] || draftToText(draft);
   }
 
   function renderChecks(draft) {
@@ -356,7 +368,7 @@
     publishRecords.slice(0, 8).forEach(function (record) {
       var item = document.createElement("div");
       item.className = "log-item";
-      item.innerHTML = '<span class="log-platform">' + record.platform + "</span><span>" + record.title + '</span><strong>\u5df2\u6a21\u62df\u53d1\u5e03</strong>';
+      item.innerHTML = '<span class="log-platform">' + record.platform + "</span><span>" + record.title + '</span><strong>' + record.status + '</strong><em>' + record.publisher + '</em>';
       box.appendChild(item);
     });
   }
@@ -381,19 +393,33 @@
 
   function publishAll() {
     var input = getInput();
+    var created = [];
     platforms.forEach(function (platform) {
       var draft = makeDraft(platform, input);
-      publishRecords.unshift({ platform: platform.name, title: draft.title });
+      var record = {
+        platform: platform.name,
+        title: draft.title,
+        status: "\u53d1\u5e03\u4e2d",
+        publisher: "MockPublisher",
+        body: getEffectiveDraftText(draft),
+      };
+      created.push(record);
+      publishRecords.unshift(record);
     });
     renderPublishLog();
-    showToast("\u5df2\u5b8c\u6210 4 \u4e2a\u5e73\u53f0\u7684\u6a21\u62df\u53d1\u5e03");
+    showToast("\u6b63\u5728\u901a\u8fc7 MockPublisher \u6a21\u62df\u53d1\u5e03");
+    window.setTimeout(function () {
+      created.forEach(function (record) {
+        record.status = "\u5df2\u6a21\u62df\u53d1\u5e03";
+      });
+      renderPublishLog();
+      showToast("\u5df2\u5b8c\u6210 4 \u4e2a\u5e73\u53f0\u7684\u6a21\u62df\u53d1\u5e03");
+    }, 650);
   }
 
   function copyCurrent() {
     var draft = makeDraft(getSelectedPlatform(), getInput());
-    var value = [draft.title, "", draft.summary, ""].concat(draft.body, ["", draft.tags.map(function (tag) {
-      return "#" + tag;
-    }).join(" ")]).join("\n");
+    var value = getEffectiveDraftText(draft);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(value).then(function () {
         showToast("\u5df2\u590d\u5236\u5f53\u524d\u53d1\u5e03\u7a3f");
@@ -401,6 +427,35 @@
     } else {
       showToast("\u5f53\u524d\u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u81ea\u52a8\u590d\u5236");
     }
+  }
+
+  function getEffectiveDraftText(draft) {
+    return editedDrafts[draft.platform.id] || draftToText(draft);
+  }
+
+  function draftToText(draft) {
+    return [draft.title, "", draft.summary, ""].concat(draft.body, ["", draft.tags.map(function (tag) {
+      return "#" + tag;
+    }).join(" ")]).join("\n");
+  }
+
+  function saveManualEdit() {
+    var platform = getSelectedPlatform();
+    var value = byId("manualDraftInput").value.trim();
+    if (!value) {
+      showToast("\u5fae\u8c03\u7a3f\u4e0d\u80fd\u4e3a\u7a7a");
+      return;
+    }
+    editedDrafts[platform.id] = value;
+    render();
+    showToast("\u5df2\u4fdd\u5b58" + platform.name + "\u4eba\u5de5\u5fae\u8c03\u7a3f");
+  }
+
+  function restoreAiDraft() {
+    var platform = getSelectedPlatform();
+    delete editedDrafts[platform.id];
+    render();
+    showToast("\u5df2\u6062\u590d" + platform.name + " AI \u751f\u6210\u7a3f");
   }
 
   function loadSample() {
@@ -440,6 +495,8 @@
     byId("analyzeBtn").addEventListener("click", analyzePlatformTrends);
     byId("publishBtn").addEventListener("click", publishAll);
     byId("copyDraftBtn").addEventListener("click", copyCurrent);
+    byId("saveEditBtn").addEventListener("click", saveManualEdit);
+    byId("restoreDraftBtn").addEventListener("click", restoreAiDraft);
     byId("loadSampleBtn").addEventListener("click", loadSample);
     byId("resetDemoBtn").addEventListener("click", resetDemo);
   }
