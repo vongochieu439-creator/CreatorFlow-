@@ -597,6 +597,46 @@ h4 {
   font-size: 20px;
 }
 
+.publisher-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.publisher-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px;
+}
+
+.publisher-item div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.publisher-item strong {
+  font-size: 13px;
+}
+
+.publisher-item span {
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.publisher-item p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .version-list {
   display: grid;
   gap: 8px;

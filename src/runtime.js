@@ -52,6 +52,33 @@
   var publishRecords = [];
   var toastTimer = null;
 
+  var publishers = {
+    wechat: {
+      current: "MockPublisher",
+      future: "\u516c\u4f17\u53f7\u8349\u7a3f\u7bb1 API",
+      mode: "\u8349\u7a3f\u7bb1",
+      note: "\u5148\u751f\u6210\u8349\u7a3f\uff0c\u518d\u7531\u8fd0\u8425\u4eba\u5458\u786e\u8ba4\u53d1\u5e03\u3002",
+    },
+    zhihu: {
+      current: "MockPublisher",
+      future: "\u6388\u6743\u53d1\u5e03 / \u534a\u81ea\u52a8\u590d\u5236",
+      mode: "\u534a\u81ea\u52a8",
+      note: "\u4fdd\u7559\u4eba\u5de5\u786e\u8ba4\uff0c\u907f\u514d\u5e73\u53f0\u6743\u9650\u548c\u98ce\u63a7\u95ee\u9898\u3002",
+    },
+    bilibili: {
+      current: "MockPublisher",
+      future: "\u521b\u4f5c\u4e2d\u5fc3\u6295\u7a3f\u6d41\u7a0b",
+      mode: "\u7a3f\u4ef6\u5305",
+      note: "\u53ef\u5bf9\u63a5\u89c6\u9891\u7d20\u6750\u3001\u7b80\u4ecb\u3001\u6807\u7b7e\u548c\u65f6\u95f4\u8f74\u3002",
+    },
+    xiaohongshu: {
+      current: "MockPublisher",
+      future: "\u5206\u4eab\u53d1\u5e03 / \u534a\u81ea\u52a8\u53d1\u5e03",
+      mode: "\u5206\u4eab\u5f0f",
+      note: "\u5efa\u8bae\u5148\u5bfc\u51fa\u53d1\u5e03\u5305\uff0c\u518d\u8fdb\u5165\u5e73\u53f0\u786e\u8ba4\u3002",
+    },
+  };
+
   var strategyTemplates = {
     wechat: {
       headline: "\u65b9\u6cd5\u8bba + \u6536\u85cf\u4ef7\u503c",
@@ -244,6 +271,7 @@
     renderChecks(activeDraft);
     renderMetrics(activeDraft);
     renderPublishSummary();
+    renderPublisherGrid();
     renderVersionList(activeDraft);
     renderPublishLog();
   }
@@ -520,6 +548,21 @@
       '<div class="summary-item"><span>\u4eba\u5de5\u7a3f</span><strong>' + edited + '</strong></div>';
   }
 
+  function renderPublisherGrid() {
+    var box = byId("publisherGrid");
+    box.innerHTML = "";
+    platforms.forEach(function (platform) {
+      var publisher = publishers[platform.id];
+      var item = document.createElement("div");
+      item.className = "publisher-item";
+      item.innerHTML =
+        '<div><strong>' + platform.name + '</strong><span>' + publisher.mode + '</span></div>' +
+        '<p>\u5f53\u524d\uff1a' + publisher.current + '</p>' +
+        '<p>\u53ef\u6269\u5c55\uff1a' + publisher.future + '</p>';
+      box.appendChild(item);
+    });
+  }
+
   function renderPublishLog() {
     var box = byId("publishLog");
     box.innerHTML = "";
@@ -565,14 +608,15 @@
         platform: platform.name,
         title: draft.title,
         status: "\u53d1\u5e03\u4e2d",
-        publisher: "MockPublisher",
+        publisher: publishers[platform.id].current,
+        channel: publishers[platform.id].future,
         body: getEffectiveDraftText(draft),
       };
       created.push(record);
       publishRecords.unshift(record);
     });
     renderPublishLog();
-    showToast("\u6b63\u5728\u901a\u8fc7 MockPublisher \u6a21\u62df\u53d1\u5e03");
+    showToast("\u6b63\u5728\u901a\u8fc7 MockPublisher \u6a21\u62df\u5e73\u53f0\u53d1\u5e03\u901a\u9053");
     window.setTimeout(function () {
       created.forEach(function (record) {
         record.status = "\u5df2\u6a21\u62df\u53d1\u5e03";
