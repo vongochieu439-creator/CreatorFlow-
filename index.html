@@ -7,148 +7,200 @@
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div>
+    <div class="app-shell workspace-shell">
+      <aside class="side-nav" aria-label="主导航">
+        <div class="brand-block">
           <p class="eyebrow">CreatorFlow</p>
-          <h1>多平台内容智能发布助手</h1>
+          <h1>多平台内容发布助手</h1>
         </div>
-        <div class="topbar-actions">
-          <span class="status-pill">本地演示版</span>
-          <button class="ghost-button" id="resetDemoBtn" type="button">重置示例</button>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" type="button" data-view="compose">创作台</button>
+          <button class="nav-item" type="button" data-view="strategy">AI策略</button>
+          <button class="nav-item" type="button" data-view="quality">质检评分</button>
+          <button class="nav-item" type="button" data-view="publish">发布交付</button>
+        </nav>
+
+        <div class="side-note">
+          <strong>当前版本</strong>
+          <span>本地演示 + AI代理</span>
         </div>
-      </header>
+      </aside>
 
-      <main class="workspace">
-        <section class="editor-panel" aria-label="内容输入区">
-          <div class="panel-heading">
-            <div>
-              <h2>原始内容</h2>
-              <p>输入一篇通用稿，系统会按平台语气、结构和限制生成发布稿。</p>
+      <div class="main-stage">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="currentViewEyebrow">创作台</p>
+            <h2 id="currentViewTitle">输入主稿并生成平台稿</h2>
+          </div>
+          <div class="topbar-actions">
+            <span class="status-pill">本地演示版</span>
+            <button class="ghost-button" id="resetDemoBtn" type="button">重置示例</button>
+          </div>
+        </header>
+
+        <main class="view-stack">
+          <section class="view-section is-active" id="view-compose" aria-label="创作台">
+            <div class="compose-grid">
+              <section class="editor-panel" aria-label="内容输入区">
+                <div class="panel-heading">
+                  <div>
+                    <h2>原始内容</h2>
+                    <p>输入主稿、受众和参考样本，生成适合不同平台的发布版本。</p>
+                  </div>
+                  <button class="secondary-button" id="loadSampleBtn" type="button">载入演示数据</button>
+                </div>
+
+                <label class="field-label" for="sourceTitle">标题</label>
+                <input id="sourceTitle" class="text-input" type="text" maxlength="80" />
+
+                <label class="field-label" for="sourceBody">正文</label>
+                <textarea id="sourceBody" class="content-input" spellcheck="false"></textarea>
+
+                <label class="field-label" for="sampleInput">参考样本（可选）</label>
+                <textarea
+                  id="sampleInput"
+                  class="sample-input"
+                  spellcheck="false"
+                  placeholder="粘贴 1-3 篇优质内容样本，用 --- 分隔。AI 只分析结构规律，不复制原文。"
+                ></textarea>
+
+                <div class="settings-grid">
+                  <label class="field">
+                    <span>目标受众</span>
+                    <input id="audienceInput" class="text-input" type="text" />
+                  </label>
+                  <label class="field">
+                    <span>改写语气</span>
+                    <select id="toneSelect" class="text-input">
+                      <option value="balanced">清晰稳重</option>
+                      <option value="friendly">轻松亲切</option>
+                      <option value="expert">专业分析</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="toggle-row">
+                  <label>
+                    <input id="tagToggle" type="checkbox" checked />
+                    自动生成标签
+                  </label>
+                  <label>
+                    <input id="ctaToggle" type="checkbox" checked />
+                    添加互动引导
+                  </label>
+                </div>
+
+                <div class="editor-actions">
+                  <button class="primary-button" id="generateBtn" type="button">生成平台稿</button>
+                  <button class="secondary-button" id="realAiBtn" type="button">AI渲染</button>
+                  <span id="generationState" class="generation-state">等待生成</span>
+                </div>
+              </section>
+
+              <section class="preview-panel focused-preview" aria-label="平台稿预览">
+                <div class="panel-heading compact">
+                  <div>
+                    <h2>当前平台稿</h2>
+                    <p>直接编辑标题、摘要和正文，保存后可回退版本。</p>
+                  </div>
+                  <div class="preview-actions">
+                    <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
+                    <button class="secondary-button" id="saveEditBtn" type="button">保存当前版本</button>
+                    <button class="ghost-button" id="restoreDraftBtn" type="button">恢复AI版本</button>
+                  </div>
+                </div>
+
+                <div class="platform-grid compact-platforms" id="platformGrid" role="tablist"></div>
+
+                <article class="phone-preview" aria-label="发布稿预览">
+                  <div class="phone-topline"></div>
+                  <div class="generation-banner" id="generationBanner">等待生成平台稿</div>
+                  <div class="preview-meta" id="previewMeta"></div>
+                  <h3 id="previewTitle" contenteditable="true" spellcheck="false"></h3>
+                  <p class="preview-summary" id="previewSummary" contenteditable="true" spellcheck="false"></p>
+                  <div class="preview-body" id="previewBody" contenteditable="true" spellcheck="false"></div>
+                  <div class="tag-list" id="previewTags"></div>
+                </article>
+              </section>
             </div>
-            <button class="secondary-button" id="loadSampleBtn" type="button">载入样例</button>
-          </div>
+          </section>
 
-          <label class="field-label" for="sourceTitle">标题</label>
-          <input id="sourceTitle" class="text-input" type="text" maxlength="80" />
-
-          <label class="field-label" for="sourceBody">正文</label>
-          <textarea id="sourceBody" class="content-input" spellcheck="false"></textarea>
-
-          <label class="field-label" for="sampleInput">参考样本</label>
-          <textarea
-            id="sampleInput"
-            class="sample-input"
-            spellcheck="false"
-            placeholder="可粘贴 1-3 篇平台优质内容样本，AI 会分析标题、开头、结构和标签规律；不会复制原文。"
-          ></textarea>
-
-          <div class="settings-grid">
-            <label class="field">
-              <span>目标受众</span>
-              <input id="audienceInput" class="text-input" type="text" />
-            </label>
-            <label class="field">
-              <span>改写语气</span>
-              <select id="toneSelect" class="text-input">
-                <option value="balanced">清晰稳重</option>
-                <option value="friendly">轻松亲切</option>
-                <option value="expert">专业分析</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="toggle-row">
-            <label>
-              <input id="tagToggle" type="checkbox" checked />
-              自动生成标签
-            </label>
-            <label>
-              <input id="ctaToggle" type="checkbox" checked />
-              添加互动引导
-            </label>
-          </div>
-
-          <div class="editor-actions">
-            <button class="primary-button" id="generateBtn" type="button">生成平台稿</button>
-            <span id="generationState" class="generation-state">已根据当前内容生成</span>
-          </div>
-        </section>
-
-        <section class="preview-panel" aria-label="平台预览区">
-          <div class="panel-heading compact">
-            <div>
-              <h2>平台适配预览</h2>
-              <p>选择平台后可查看对应格式、风险提示和模拟发布状态。</p>
-            </div>
-            <div class="preview-actions">
-              <button class="secondary-button" id="analyzeBtn" type="button">AI分析爆款规律</button>
-              <button class="secondary-button" id="realAiBtn" type="button">AI渲染</button>
-              <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
-              <button class="secondary-button" id="exportBtn" type="button">导出全部稿</button>
-              <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
-            </div>
-          </div>
-
-          <div class="platform-grid" id="platformGrid" role="tablist"></div>
-          <div class="strategy-board" id="strategyBoard" aria-label="AI平台策略"></div>
-
-          <div class="preview-layout">
-            <article class="phone-preview" aria-label="发布稿预览">
-              <div class="phone-topline"></div>
-              <div class="generation-banner" id="generationBanner">等待生成平台稿</div>
-              <div class="preview-meta" id="previewMeta"></div>
-              <h3 id="previewTitle" contenteditable="true" spellcheck="false"></h3>
-              <p class="preview-summary" id="previewSummary" contenteditable="true" spellcheck="false"></p>
-              <div class="preview-body" id="previewBody" contenteditable="true" spellcheck="false"></div>
-              <div class="tag-list" id="previewTags"></div>
-            </article>
-
-            <aside class="inspector" aria-label="适配分析">
-              <div>
-                <h3>适配检查</h3>
-                <ul class="check-list" id="checkList"></ul>
+          <section class="view-section" id="view-strategy" aria-label="AI策略">
+            <section class="preview-panel full-panel">
+              <div class="panel-heading compact">
+                <div>
+                  <h2>AI 平台策略</h2>
+                  <p>先分析平台规律和参考样本，再指导不同平台的内容生成。</p>
+                </div>
+                <button class="primary-button" id="analyzeBtn" type="button">AI分析爆款规律</button>
               </div>
-              <div>
+              <div class="strategy-board strategy-board-roomy" id="strategyBoard" aria-label="AI平台策略"></div>
+            </section>
+          </section>
+
+          <section class="view-section" id="view-quality" aria-label="质检评分">
+            <div class="quality-grid-page">
+              <section class="preview-panel">
                 <div class="section-title-row">
                   <h3>内容评分</h3>
                   <button class="ghost-button mini-button" id="rescoreBtn" type="button">重新评分</button>
                 </div>
                 <div class="quality-panel" id="qualityPanel"></div>
-              </div>
-              <div>
+              </section>
+
+              <section class="preview-panel">
+                <h3>适配检查</h3>
+                <ul class="check-list" id="checkList"></ul>
+              </section>
+
+              <section class="preview-panel">
                 <h3>内容指标</h3>
                 <div class="metric-grid" id="metricGrid"></div>
-              </div>
-              <div>
+              </section>
+            </div>
+          </section>
+
+          <section class="view-section" id="view-publish" aria-label="发布交付">
+            <div class="publish-grid-page">
+              <section class="preview-panel">
+                <div class="panel-heading compact">
+                  <div>
+                    <h2>发布交付</h2>
+                    <p>导出发布包，或通过 MockPublisher 演示发布闭环。</p>
+                  </div>
+                  <div class="preview-actions">
+                    <button class="secondary-button" id="exportBtn" type="button">导出全部稿</button>
+                    <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
+                  </div>
+                </div>
                 <h3>发布总览</h3>
                 <div class="publish-summary" id="publishSummary"></div>
-              </div>
-              <div>
+              </section>
+
+              <section class="preview-panel">
                 <h3>发布通道</h3>
                 <div class="publisher-grid" id="publisherGrid"></div>
-              </div>
-              <div>
+              </section>
+
+              <section class="preview-panel">
                 <h3>版本历史</h3>
                 <div class="version-list" id="versionList"></div>
-                <div class="manual-actions">
-                  <button class="secondary-button" id="saveEditBtn" type="button">保存当前版本</button>
-                  <button class="ghost-button" id="restoreDraftBtn" type="button">恢复AI版本</button>
-                </div>
-                <p class="manual-note">直接编辑左侧平台稿，保存后可随时回退。</p>
-              </div>
-              <div>
+                <p class="manual-note">在创作台保存当前稿后，可在这里回退。</p>
+              </section>
+
+              <section class="preview-panel">
                 <h3>发布记录</h3>
                 <div class="publish-log" id="publishLog"></div>
-              </div>
-            </aside>
-          </div>
-        </section>
-      </main>
+              </section>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052911"></script>
+    <script src="./src/runtime.js?v=2026052912"></script>
   </body>
 </html>

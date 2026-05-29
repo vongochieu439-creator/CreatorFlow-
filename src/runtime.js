@@ -53,6 +53,12 @@
   var scoreDirty = false;
   var publishRecords = [];
   var toastTimer = null;
+  var viewMeta = {
+    compose: ["\u521b\u4f5c\u53f0", "\u8f93\u5165\u4e3b\u7a3f\u5e76\u751f\u6210\u5e73\u53f0\u7a3f"],
+    strategy: ["AI\u7b56\u7565", "\u5206\u6790\u5e73\u53f0\u89c4\u5f8b\u548c\u53c2\u8003\u6837\u672c"],
+    quality: ["\u8d28\u68c0\u8bc4\u5206", "\u67e5\u770b\u5185\u5bb9\u98ce\u9669\u3001\u6307\u6807\u548c\u4f18\u5316\u5efa\u8bae"],
+    publish: ["\u53d1\u5e03\u4ea4\u4ed8", "\u5bfc\u51fa\u7a3f\u4ef6\u3001\u6a21\u62df\u53d1\u5e03\u548c\u67e5\u770b\u901a\u9053"],
+  };
 
   var publishers = {
     wechat: {
@@ -894,6 +900,22 @@
     });
     byId("loadSampleBtn").addEventListener("click", loadSample);
     byId("resetDemoBtn").addEventListener("click", resetDemo);
+    Array.prototype.forEach.call(document.querySelectorAll(".nav-item"), function (button) {
+      button.addEventListener("click", function () {
+        switchView(button.dataset.view);
+      });
+    });
+  }
+
+  function switchView(view) {
+    Array.prototype.forEach.call(document.querySelectorAll(".nav-item"), function (button) {
+      button.classList.toggle("is-active", button.dataset.view === view);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".view-section"), function (section) {
+      section.classList.toggle("is-active", section.id === "view-" + view);
+    });
+    byId("currentViewEyebrow").textContent = viewMeta[view][0];
+    byId("currentViewTitle").textContent = viewMeta[view][1];
   }
 
   window.addEventListener("error", function (event) {
