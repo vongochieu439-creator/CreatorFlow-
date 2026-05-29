@@ -935,6 +935,25 @@
     });
   }
 
+  async function checkAiStatus() {
+    var status = byId("aiStatus");
+    if (!status) return;
+    try {
+      var response = await fetch("/api/health");
+      var data = await response.json();
+      if (data.ok) {
+        status.textContent = "\u771f\u5b9eAI\u5df2\u8fde\u63a5\uff1a" + data.model;
+        status.className = "ai-status is-ready";
+      } else {
+        status.textContent = "\u672a\u914d\u7f6eAI\uff0c\u4f7f\u7528\u672c\u5730\u6a21\u62df";
+        status.className = "ai-status is-mock";
+      }
+    } catch {
+      status.textContent = "\u9759\u6001\u6a21\u5f0f\uff0c\u4f7f\u7528\u672c\u5730\u6a21\u62df";
+      status.className = "ai-status is-mock";
+    }
+  }
+
   function switchView(view) {
     Array.prototype.forEach.call(document.querySelectorAll(".nav-item"), function (button) {
       button.classList.toggle("is-active", button.dataset.view === view);
@@ -955,5 +974,6 @@
   });
 
   bind();
+  checkAiStatus();
   render();
 }());

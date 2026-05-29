@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CreatorFlow 多平台内容发布助手</title>
-    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/styles.css?v=2026052915" />
   </head>
   <body>
     <div class="app-shell workspace-shell">
@@ -24,6 +24,7 @@
         <div class="side-note">
           <strong>当前版本</strong>
           <span>本地演示 + AI代理</span>
+          <span class="ai-status" id="aiStatus">AI状态检测中</span>
         </div>
       </aside>
 
@@ -99,7 +100,7 @@
               </section>
 
               <section class="preview-panel focused-preview" aria-label="平台稿预览">
-                <div class="panel-heading compact">
+                <div class="panel-heading compact preview-heading">
                   <div>
                     <h2>当前平台稿</h2>
                     <p>直接编辑标题、摘要和正文，保存后可回退版本。</p>
@@ -206,6 +207,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052913"></script>
+    <script src="./src/runtime.js?v=2026052915"></script>
   </body>
 </html>
