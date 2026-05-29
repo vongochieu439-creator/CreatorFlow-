@@ -76,6 +76,7 @@
             <div class="preview-actions">
               <button class="secondary-button" id="analyzeBtn" type="button">AI分析爆款规律</button>
               <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
+              <button class="secondary-button" id="exportBtn" type="button">导出全部稿</button>
               <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
             </div>
           </div>
@@ -88,9 +89,9 @@
               <div class="phone-topline"></div>
               <div class="generation-banner" id="generationBanner">等待生成平台稿</div>
               <div class="preview-meta" id="previewMeta"></div>
-              <h3 id="previewTitle"></h3>
-              <p class="preview-summary" id="previewSummary"></p>
-              <div class="preview-body" id="previewBody"></div>
+              <h3 id="previewTitle" contenteditable="true" spellcheck="false"></h3>
+              <p class="preview-summary" id="previewSummary" contenteditable="true" spellcheck="false"></p>
+              <div class="preview-body" id="previewBody" contenteditable="true" spellcheck="false"></div>
               <div class="tag-list" id="previewTags"></div>
             </article>
 
@@ -104,13 +105,17 @@
                 <div class="metric-grid" id="metricGrid"></div>
               </div>
               <div>
-                <h3>人工微调</h3>
-                <textarea id="manualDraftInput" class="manual-draft-input" aria-label="人工微调发布稿"></textarea>
+                <h3>发布总览</h3>
+                <div class="publish-summary" id="publishSummary"></div>
+              </div>
+              <div>
+                <h3>版本历史</h3>
+                <div class="version-list" id="versionList"></div>
                 <div class="manual-actions">
-                  <button class="secondary-button" id="saveEditBtn" type="button">保存微调</button>
-                  <button class="ghost-button" id="restoreDraftBtn" type="button">恢复AI稿</button>
+                  <button class="secondary-button" id="saveEditBtn" type="button">保存当前版本</button>
+                  <button class="ghost-button" id="restoreDraftBtn" type="button">恢复AI版本</button>
                 </div>
-                <p class="manual-note">发布和复制会优先使用已保存的人工稿。</p>
+                <p class="manual-note">直接编辑左侧平台稿，保存后可随时回退。</p>
               </div>
               <div>
                 <h3>发布记录</h3>
@@ -124,6 +129,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052904"></script>
+    <script src="./src/runtime.js?v=2026052906"></script>
   </body>
 </html>
