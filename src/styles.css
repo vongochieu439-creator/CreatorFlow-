@@ -104,8 +104,69 @@ body {
 
 .compose-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+  grid-template-columns: minmax(320px, 0.8fr) minmax(460px, 1fr) minmax(300px, 0.72fr);
   gap: 18px;
+}
+
+.review-panel {
+  align-self: start;
+}
+
+.diff-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.diff-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diff-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.diff-row.is-changed {
+  border-color: rgba(18, 107, 103, 0.32);
+}
+
+.diff-row h4 {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--soft);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.diff-row div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.diff-row pre {
+  min-height: 56px;
+  max-height: 180px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  white-space: pre-wrap;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.diff-row pre + pre {
+  border-left: 1px solid var(--line);
+  color: var(--ink);
 }
 
 .full-panel {
@@ -983,6 +1044,16 @@ h4 {
   .quality-grid-page,
   .publish-grid-page {
     grid-template-columns: 1fr;
+  }
+
+  .diff-row div,
+  .diff-head {
+    grid-template-columns: 1fr;
+  }
+
+  .diff-row pre + pre {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 
   .workspace,

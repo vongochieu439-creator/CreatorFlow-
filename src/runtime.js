@@ -282,6 +282,7 @@
     renderPublishSummary();
     renderPublisherGrid();
     renderVersionList(activeDraft);
+    renderDiffPanel(activeDraft);
     renderPublishLog();
   }
 
@@ -509,6 +510,33 @@
       });
       box.appendChild(item);
     });
+  }
+
+  function renderDiffPanel(draft) {
+    var aiParts = draftToParts(draft);
+    var currentParts = editedDrafts[draft.platform.id] || aiParts;
+    var rows = [
+      ["\u6807\u9898", aiParts.title, currentParts.title],
+      ["\u6458\u8981", aiParts.summary, currentParts.summary],
+      ["\u6b63\u6587", aiParts.body.join("\n"), currentParts.body.join("\n")],
+    ];
+    byId("diffPanel").innerHTML =
+      '<div class="diff-head"><span>AI\u539f\u7a3f</span><span>\u5f53\u524d\u7a3f</span></div>' +
+      rows.map(function (row) {
+        var changed = row[1] !== row[2];
+        return '<section class="diff-row' + (changed ? " is-changed" : "") + '">' +
+          '<h4>' + row[0] + (changed ? " · \u5df2\u4fee\u6539" : " · \u672a\u53d8\u66f4") + '</h4>' +
+          '<div><pre>' + escapeHtml(row[1]) + '</pre><pre>' + escapeHtml(row[2]) + '</pre></div>' +
+          '</section>';
+      }).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function renderChecks(draft) {
