@@ -298,6 +298,80 @@ h4 {
   font-weight: 700;
 }
 
+.strategy-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.strategy-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.strategy-card:hover,
+.strategy-card.is-active {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+  box-shadow: 0 10px 24px rgba(23, 32, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.strategy-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.strategy-card-head span {
+  font-weight: 800;
+}
+
+.strategy-card-head strong {
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.strategy-main {
+  margin-bottom: 10px;
+  color: var(--primary-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.strategy-card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.strategy-card div {
+  min-width: 0;
+}
+
+.strategy-card dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.strategy-card dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .preview-layout {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) 300px;
@@ -546,6 +620,10 @@ h4 {
   .platform-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .strategy-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -564,6 +642,7 @@ h4 {
 
   .settings-grid,
   .platform-grid,
+  .strategy-board,
   .metric-grid {
     grid-template-columns: 1fr;
   }

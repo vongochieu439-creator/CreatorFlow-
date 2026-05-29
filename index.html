@@ -74,12 +74,14 @@
               <p>选择平台后可查看对应格式、风险提示和模拟发布状态。</p>
             </div>
             <div class="preview-actions">
+              <button class="secondary-button" id="analyzeBtn" type="button">AI分析爆款规律</button>
               <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
               <button class="primary-button" id="publishBtn" type="button">模拟一键发布</button>
             </div>
           </div>
 
           <div class="platform-grid" id="platformGrid" role="tablist"></div>
+          <div class="strategy-board" id="strategyBoard" aria-label="AI平台策略"></div>
 
           <div class="preview-layout">
             <article class="phone-preview" aria-label="发布稿预览">
@@ -113,6 +115,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052902"></script>
+    <script src="./src/runtime.js?v=2026052903"></script>
   </body>
 </html>

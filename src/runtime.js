@@ -42,8 +42,45 @@
 
   var selectedId = "wechat";
   var generationCount = 0;
+  var analysisCount = 0;
+  var platformStrategies = {};
   var publishRecords = [];
   var toastTimer = null;
+
+  var strategyTemplates = {
+    wechat: {
+      headline: "\u65b9\u6cd5\u8bba + \u6536\u85cf\u4ef7\u503c",
+      titlePatterns: ["\u7ed3\u679c\u627f\u8bfa + \u5b8c\u6574\u6307\u5357", "\u95ee\u9898\u80cc\u666f + \u89e3\u51b3\u65b9\u6848", "\u4eba\u7fa4 + \u5b9e\u7528\u6e05\u5355"],
+      opening: "\u5148\u4ea4\u4ee3\u95ee\u9898\u80cc\u666f\uff0c\u518d\u8bf4\u8fd9\u7bc7\u6587\u80fd\u5e2e\u8bfb\u8005\u89e3\u51b3\u4ec0\u4e48\u3002",
+      structure: ["\u80cc\u666f", "\u6838\u5fc3\u65b9\u6cd5", "\u64cd\u4f5c\u6b65\u9aa4", "\u603b\u7ed3"],
+      tags: ["\u5185\u5bb9\u8fd0\u8425", "\u6548\u7387\u5de5\u5177", "\u7ecf\u9a8c\u603b\u7ed3"],
+      risk: "\u907f\u514d\u6807\u9898\u8fc7\u5ea6\u5938\u5f20\uff0c\u8981\u4fdd\u7559\u4fe1\u606f\u5bc6\u5ea6\u548c\u53ef\u4fe1\u5ea6\u3002",
+    },
+    zhihu: {
+      headline: "\u95ee\u9898\u610f\u8bc6 + \u7ed3\u8bba\u5148\u884c",
+      titlePatterns: ["\u95ee\u9898 + \u5b9e\u9645\u600e\u4e48\u505a", "\u7ed3\u8bba + \u539f\u56e0\u5206\u6790", "\u8bef\u533a + \u6b63\u786e\u505a\u6cd5"],
+      opening: "\u7b2c\u4e00\u6bb5\u76f4\u63a5\u7ed9\u5224\u65ad\uff0c\u7136\u540e\u8bf4\u660e\u7406\u7531\u3002",
+      structure: ["\u7ed3\u8bba", "\u539f\u56e0", "\u6848\u4f8b", "\u5efa\u8bae"],
+      tags: ["\u5185\u5bb9\u521b\u4f5c", "\u65b0\u5a92\u4f53", "\u6548\u7387"],
+      risk: "\u907f\u514d\u53ea\u6709\u60c5\u7eea\u8868\u8fbe\uff0c\u9700\u8981\u7ed9\u51fa\u8bba\u636e\u548c\u8fb9\u754c\u3002",
+    },
+    bilibili: {
+      headline: "\u770b\u70b9\u524d\u7f6e + \u8282\u594f\u660e\u786e",
+      titlePatterns: ["\u7ed3\u679c + 3\u5206\u949f\u8bb2\u6e05", "\u65b0\u624b + \u907f\u5751", "\u4e00\u671f\u641e\u61c2 + \u5173\u952e\u95ee\u9898"],
+      opening: "\u7b80\u4ecb\u5148\u8bf4\u89c6\u9891\u770b\u70b9\uff0c\u518d\u7ed9\u65f6\u95f4\u8f74\u3002",
+      structure: ["\u89c6\u9891\u7b80\u4ecb", "\u65f6\u95f4\u8f74", "\u770b\u70b9", "\u4e92\u52a8"],
+      tags: ["\u521b\u4f5c\u5de5\u5177", "\u8fd0\u8425\u7ecf\u9a8c", "\u89c6\u9891\u53d1\u5e03"],
+      risk: "\u907f\u514d\u7b80\u4ecb\u592a\u957f\uff0c\u8981\u8ba9\u7528\u6237\u5feb\u901f\u770b\u5230\u89c6\u9891\u4ef7\u503c\u3002",
+    },
+    xiaohongshu: {
+      headline: "\u75db\u70b9\u6807\u9898 + \u77ed\u53e5\u6e05\u5355",
+      titlePatterns: ["\u4eba\u7fa4 + \u907f\u5751\u6e05\u5355", "\u75db\u70b9 + \u89e3\u51b3\u7ed3\u679c", "\u6570\u5b57 + \u53ef\u6536\u85cf"],
+      opening: "\u5148\u8bf4\u7528\u6237\u75db\u70b9\uff0c\u518d\u7ed9\u4e00\u4e2a\u53ef\u7acb\u5373\u4f7f\u7528\u7684\u7ed3\u679c\u3002",
+      structure: ["\u9002\u5408\u8c01", "\u6838\u5fc3\u6e05\u5355", "\u4f7f\u7528\u4f53\u9a8c", "\u8bc4\u8bba\u63d0\u95ee"],
+      tags: ["\u535a\u4e3b\u5de5\u5177", "\u5185\u5bb9\u6a21\u677f", "\u65b0\u624b\u8fd0\u8425"],
+      risk: "\u907f\u514d\u8fc7\u5ea6\u8425\u9500\u548c\u7167\u642c\u53c2\u8003\u7d20\u6750\uff0c\u4fdd\u7559\u539f\u521b\u89c2\u70b9\u3002",
+    },
+  };
 
   function byId(id) {
     return document.getElementById(id);
@@ -75,32 +112,33 @@
   }
 
   function makeDraft(platform, input) {
+    var strategy = platformStrategies[platform.id] || strategyTemplates[platform.id];
     var lines = splitLines(input.body);
     var body = [];
     var title = input.title;
     var summary = "";
 
     if (platform.id === "wechat") {
-      title = cut(input.title + "\u5b8c\u6574\u6307\u5357", platform.maxTitle);
-      summary = "\u9762\u5411" + input.audience + "\uff0c\u5c06\u4e3b\u7a3f\u6574\u7406\u4e3a\u9002\u5408\u516c\u4f17\u53f7\u9605\u8bfb\u7684\u957f\u6587\u7ed3\u6784\u3002";
+      title = cut(input.audience + "\u5fc5\u6536\u85cf\uff1a" + input.title, platform.maxTitle);
+      summary = "\u9762\u5411" + input.audience + "\uff0c\u6839\u636e\u516c\u4f17\u53f7\u70ed\u95e8\u5185\u5bb9\u7684\u300c" + strategy.headline + "\u300d\u89c4\u5f8b\u91cd\u7ec4\u4e3a\u957f\u6587\u7ed3\u6784\u3002";
       body = ["\u5f00\u7bc7\u8bf4\u660e"].concat(lines.slice(0, 2), ["\u6838\u5fc3\u62c6\u89e3"], numberLines(lines));
     }
 
     if (platform.id === "zhihu") {
       title = cut(input.title + "\uff0c\u5b9e\u9645\u5e94\u8be5\u600e\u4e48\u505a\uff1f", platform.maxTitle);
-      summary = "\u5148\u7ed9\u7ed3\u8bba\uff1a\u5173\u952e\u662f\u4fdd\u7559\u6838\u5fc3\u89c2\u70b9\uff0c\u518d\u6309\u5e73\u53f0\u8c03\u6574\u8868\u8fbe\u3002";
+      summary = "\u5148\u7ed9\u7ed3\u8bba\uff1a\u7ed3\u5408\u77e5\u4e4e\u300c" + strategy.headline + "\u300d\u7684\u5185\u5bb9\u7279\u5f81\uff0c\u5173\u952e\u662f\u628a\u89c2\u70b9\u3001\u7406\u7531\u548c\u5efa\u8bae\u8bb2\u6e05\u695a\u3002";
       body = ["\u6211\u7684\u5224\u65ad", summary, "\u4e3a\u4ec0\u4e48\u9700\u8981\u9002\u914d"].concat(lines.slice(0, 3), ["\u53ef\u6267\u884c\u5efa\u8bae"], numberLines(lines).slice(0, 4));
     }
 
     if (platform.id === "bilibili") {
       title = cut(input.title + " | 3\u5206\u949f\u8bb2\u6e05\u695a", platform.maxTitle);
-      summary = "\u672c\u671f\u9762\u5411" + input.audience + "\uff0c\u7528\u66f4\u77ed\u8282\u594f\u8bb2\u6e05\u6838\u5fc3\u601d\u8def\u3002";
+      summary = "\u672c\u671f\u9762\u5411" + input.audience + "\uff0c\u6309 B\u7ad9\u300c" + strategy.headline + "\u300d\u7684\u89c4\u5f8b\u63d0\u70bc\u770b\u70b9\u548c\u65f6\u95f4\u8f74\u3002";
       body = ["\u89c6\u9891\u7b80\u4ecb", summary, "\u770b\u70b9\u65f6\u95f4\u8f74", "00:00 \u95ee\u9898\u80cc\u666f", "00:35 \u6838\u5fc3\u65b9\u6848", "01:40 \u5e73\u53f0\u5dee\u5f02", "02:30 \u53d1\u5e03\u524d\u68c0\u67e5"].concat(lines.slice(0, 2));
     }
 
     if (platform.id === "xiaohongshu") {
-      title = cut(input.title + "\u907f\u5751\u6e05\u5355", platform.maxTitle);
-      summary = "\u7ed9" + input.audience + "\u7684\u4e00\u4efd\u53d1\u5e03\u524d\u68c0\u67e5\u6e05\u5355\uff0c\u9002\u5408\u6536\u85cf\u7167\u505a\u3002";
+      title = cut(input.audience + input.title + "\u907f\u5751\u6e05\u5355", platform.maxTitle);
+      summary = "\u7ed9" + input.audience + "\u7684\u4e00\u4efd\u53d1\u5e03\u524d\u68c0\u67e5\u6e05\u5355\uff0c\u6309\u5c0f\u7ea2\u4e66\u300c" + strategy.headline + "\u300d\u98ce\u683c\u751f\u6210\u3002";
       body = ["\u9002\u5408\u8c01", summary, "\u53d1\u5e03\u524d\u770b\u8fd9\u51e0\u9879"].concat(shortLines(lines));
     }
 
@@ -127,6 +165,7 @@
         { ok: title.length <= platform.maxTitle, text: "\u6807\u9898\u4e0d\u8d85\u8fc7 " + platform.maxTitle + " \u5b57" },
         { ok: plainText.length >= platform.minLength && plainText.length <= platform.maxLength, text: "\u6b63\u6587\u5efa\u8bae " + platform.minLength + "-" + platform.maxLength + " \u5b57" },
         { ok: tags.length > 0, text: "\u5df2\u751f\u6210\u5e73\u53f0\u5206\u53d1\u6807\u7b7e" },
+        { ok: analysisCount > 0, text: "\u5df2\u7ed3\u5408 AI \u5e73\u53f0\u7206\u6b3e\u5206\u6790\u7b56\u7565" },
         { ok: true, text: "\u5df2\u6309" + platform.name + "\u98ce\u683c\u91cd\u7ec4" },
       ],
     };
@@ -169,10 +208,66 @@
     var activePlatform = getSelectedPlatform();
     var activeDraft = makeDraft(activePlatform, input);
     renderPlatformCards(input);
+    renderStrategyBoard(input);
     renderPreview(activeDraft);
     renderChecks(activeDraft);
     renderMetrics(activeDraft);
     renderPublishLog();
+  }
+
+  function analyzePlatformTrends() {
+    analysisCount += 1;
+    byId("analyzeBtn").disabled = true;
+    byId("analyzeBtn").textContent = "AI\u5206\u6790\u4e2d";
+    byId("generationState").textContent = "\u6b63\u5728\u5206\u6790\u5e73\u53f0\u7206\u6b3e\u89c4\u5f8b";
+
+    window.setTimeout(function () {
+      platforms.forEach(function (platform) {
+        platformStrategies[platform.id] = buildStrategy(platform, getInput());
+      });
+      byId("analyzeBtn").disabled = false;
+      byId("analyzeBtn").textContent = "\u91cd\u65b0AI\u5206\u6790";
+      byId("generationState").textContent = "\u5df2\u5f62\u6210 4 \u4e2a\u5e73\u53f0\u5185\u5bb9\u7b56\u7565";
+      render();
+      showToast("AI \u5df2\u5206\u6790 4 \u4e2a\u5e73\u53f0\u7684\u7206\u6b3e\u5185\u5bb9\u89c4\u5f8b");
+    }, 360);
+  }
+
+  function buildStrategy(platform, input) {
+    var template = strategyTemplates[platform.id];
+    return {
+      headline: template.headline,
+      titlePatterns: template.titlePatterns,
+      opening: template.opening,
+      structure: template.structure,
+      tags: template.tags.concat(cut(input.title.replace(/\s+/g, ""), 8)).slice(0, 5),
+      risk: template.risk,
+    };
+  }
+
+  function renderStrategyBoard(input) {
+    var board = byId("strategyBoard");
+    board.innerHTML = "";
+    platforms.forEach(function (platform) {
+      var strategy = platformStrategies[platform.id] || strategyTemplates[platform.id];
+      var card = document.createElement("article");
+      card.className = "strategy-card" + (platform.id === selectedId ? " is-active" : "");
+      card.style.setProperty("--accent", platform.accent);
+      card.innerHTML =
+        '<div class="strategy-card-head"><span>' + platform.name + '</span><strong>' + (analysisCount ? "AI\u5df2\u5206\u6790" : "\u9884\u7f6e\u7b56\u7565") + "</strong></div>" +
+        '<p class="strategy-main">' + strategy.headline + "</p>" +
+        '<dl>' +
+        '<div><dt>\u6807\u9898\u89c4\u5f8b</dt><dd>' + strategy.titlePatterns[0] + "</dd></div>" +
+        '<div><dt>\u5f00\u5934\u65b9\u5f0f</dt><dd>' + strategy.opening + "</dd></div>" +
+        '<div><dt>\u5185\u5bb9\u7ed3\u6784</dt><dd>' + strategy.structure.join(" / ") + "</dd></div>" +
+        '<div><dt>\u98ce\u9669\u63d0\u9192</dt><dd>' + strategy.risk + "</dd></div>" +
+        "</dl>";
+      card.addEventListener("click", function () {
+        selectedId = platform.id;
+        render();
+      });
+      board.appendChild(card);
+    });
   }
 
   function renderPlatformCards(input) {
@@ -280,7 +375,7 @@
       byId("generationState").textContent = "\u5df2\u751f\u6210 4 \u4e2a\u5e73\u53f0\u7248\u672c";
       byId("generationBanner").classList.remove("is-working");
       render();
-      showToast("\u5df2\u751f\u6210\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7a3f\u4ef6");
+      showToast(analysisCount ? "\u5df2\u57fa\u4e8e AI \u5e73\u53f0\u7b56\u7565\u751f\u6210\u7a3f\u4ef6" : "\u5df2\u751f\u6210\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7a3f\u4ef6");
     }, 250);
   }
 
@@ -342,6 +437,7 @@
       byId(id).addEventListener("change", render);
     });
     byId("generateBtn").addEventListener("click", generate);
+    byId("analyzeBtn").addEventListener("click", analyzePlatformTrends);
     byId("publishBtn").addEventListener("click", publishAll);
     byId("copyDraftBtn").addEventListener("click", copyCurrent);
     byId("loadSampleBtn").addEventListener("click", loadSample);
