@@ -49,6 +49,8 @@
   var aiDrafts = {};
   var aiSource = "\u672c\u5730\u6a21\u62df";
   var sampleSource = "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c";
+  var hasScored = false;
+  var scoreDirty = false;
   var publishRecords = [];
   var toastTimer = null;
 
@@ -269,6 +271,7 @@
     renderStrategyBoard(input);
     renderPreview(activeDraft);
     renderChecks(activeDraft);
+    renderQuality(activeDraft);
     renderMetrics(activeDraft);
     renderPublishSummary();
     renderPublisherGrid();
@@ -327,6 +330,8 @@
       analysisCount += 1;
       generationCount += 1;
       editedDrafts = {};
+      hasScored = true;
+      scoreDirty = false;
       render();
       byId("generationState").textContent = "\u5df2\u5b8c\u6210 AI \u6e32\u67d3";
       showToast("AI \u6e32\u67d3\u5b8c\u6210");
@@ -511,6 +516,75 @@
     });
   }
 
+  function renderQuality(draft) {
+    var panel = byId("qualityPanel");
+    if (!hasScored) {
+      panel.innerHTML = '<p class="empty-state">\u751f\u6210\u5e73\u53f0\u7a3f\u540e\u663e\u793a\u8bc4\u5206</p>';
+      return;
+    }
+    var result = scoreDraft(draft);
+    panel.innerHTML =
+      (scoreDirty ? '<p class="score-stale">\u5185\u5bb9\u5df2\u53d8\u66f4\uff0c\u5efa\u8bae\u91cd\u65b0\u8bc4\u5206</p>' : "") +
+      '<div class="quality-score"><strong>' + result.score + '</strong><span>\u7efc\u5408\u5206</span></div>' +
+      '<div class="quality-bars">' +
+      result.items.map(function (item) {
+        return '<div class="quality-bar"><div><span>' + item.label + '</span><strong>' + item.value + '</strong></div><meter min="0" max="100" value="' + item.value + '"></meter></div>';
+      }).join("") +
+      '</div><ul class="quality-tips">' +
+      result.tips.map(function (tip) {
+        return "<li>" + tip + "</li>";
+      }).join("") +
+      "</ul>";
+  }
+
+  function scoreDraft(draft) {
+    var titleScore = clampScore(100 - Math.max(0, draft.metrics.titleLength - draft.platform.maxTitle) * 8);
+    var targetLength = (draft.platform.minLength + draft.platform.maxLength) / 2;
+    var lengthDistance = Math.abs(draft.metrics.length - targetLength) / targetLength;
+    var structureScore = clampScore(92 - Math.round(lengthDistance * 45) + Math.min(draft.metrics.sectionCount, 6) * 2);
+    var matchScore = clampScore(analysisCount ? 88 : 72);
+    var tagScore = clampScore(draft.metrics.tagCount >= 3 ? 92 : 58 + draft.metrics.tagCount * 10);
+    var riskScore = clampScore((draft.metrics.length < draft.platform.minLength ? 64 : 88) - (draft.metrics.titleLength > draft.platform.maxTitle ? 18 : 0));
+    var confirmedScore = editedDrafts[draft.platform.id] ? 8 : 0;
+    var apiScore = aiSource !== "\u672c\u5730\u6a21\u62df" ? 4 : 0;
+    var score = clampScore(Math.round((titleScore + structureScore + matchScore + tagScore + riskScore) / 5 + confirmedScore + apiScore));
+    var tips = [];
+
+    if (draft.metrics.titleLength > draft.platform.maxTitle) {
+      tips.push("\u6807\u9898\u504f\u957f\uff0c\u5efa\u8bae\u538b\u7f29\u5230\u5e73\u53f0\u9650\u5236\u5185\u3002");
+    } else {
+      tips.push("\u6807\u9898\u957f\u5ea6\u53ef\u7528\uff0c\u53ef\u518d\u7a81\u51fa\u4e00\u4e2a\u660e\u786e\u5229\u76ca\u70b9\u3002");
+    }
+    if (draft.metrics.length < draft.platform.minLength) {
+      tips.push("\u6b63\u6587\u504f\u77ed\uff0c\u5efa\u8bae\u8865\u5145\u6848\u4f8b\u6216\u64cd\u4f5c\u6b65\u9aa4\u3002");
+    }
+    if (!editedDrafts[draft.platform.id]) {
+      tips.push("\u5efa\u8bae\u53d1\u5e03\u524d\u624b\u52a8\u786e\u8ba4\u5e76\u4fdd\u5b58\u4e00\u4e2a\u7248\u672c\u3002");
+    }
+    if (draft.metrics.tagCount < 3) {
+      tips.push("\u6807\u7b7e\u8f83\u5c11\uff0c\u53ef\u589e\u52a0\u4eba\u7fa4\u3001\u573a\u666f\u548c\u95ee\u9898\u7c7b\u6807\u7b7e\u3002");
+    }
+    if (tips.length < 3) {
+      tips.push("\u5e73\u53f0\u5339\u914d\u5ea6\u8f83\u597d\uff0c\u53ef\u76f4\u63a5\u8fdb\u5165\u590d\u5236\u6216\u5bfc\u51fa\u6d41\u7a0b\u3002");
+    }
+
+    return {
+      score: score,
+      items: [
+        { label: "\u6807\u9898\u5438\u5f15\u529b", value: titleScore },
+        { label: "\u7ed3\u6784\u5b8c\u6574\u5ea6", value: structureScore },
+        { label: "\u5e73\u53f0\u5339\u914d\u5ea6", value: matchScore },
+        { label: "\u6807\u7b7e\u8986\u76d6\u5ea6", value: tagScore },
+        { label: "\u98ce\u9669\u63a7\u5236", value: riskScore },
+      ],
+      tips: tips.slice(0, 3),
+    };
+  }
+
+  function clampScore(value) {
+    return Math.max(0, Math.min(100, value));
+  }
+
   function renderMetrics(draft) {
     var metrics = [
       ["\u5b57\u6570", draft.metrics.length],
@@ -583,6 +657,8 @@
     aiSource = "\u672c\u5730\u6a21\u62df";
     sampleSource = "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c";
     aiDrafts = {};
+    hasScored = false;
+    scoreDirty = false;
     byId("generateBtn").textContent = "\u751f\u6210\u4e2d";
     byId("generateBtn").disabled = true;
     byId("generationState").textContent = "\u6b63\u5728\u751f\u6210 4 \u4e2a\u5e73\u53f0\u7248\u672c";
@@ -594,6 +670,7 @@
       byId("generateBtn").textContent = "\u91cd\u65b0\u751f\u6210\u5e73\u53f0\u7a3f";
       byId("generationState").textContent = "\u5df2\u751f\u6210 4 \u4e2a\u5e73\u53f0\u7248\u672c";
       byId("generationBanner").classList.remove("is-working");
+      hasScored = true;
       render();
       showToast(analysisCount ? "\u5df2\u57fa\u4e8e AI \u5e73\u53f0\u7b56\u7565\u751f\u6210\u7a3f\u4ef6" : "\u5df2\u751f\u6210\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7a3f\u4ef6");
     }, 250);
@@ -739,6 +816,7 @@
       parts: cloneParts(parts),
     });
     draftVersions[platform.id] = draftVersions[platform.id].slice(0, 8);
+    scoreDirty = true;
     render();
     showToast("\u5df2\u4fdd\u5b58" + platform.name + "\u5f53\u524d\u7248\u672c");
   }
@@ -766,6 +844,8 @@
     byId("audienceInput").value = "";
     generationCount = 0;
     analysisCount = 0;
+    hasScored = false;
+    scoreDirty = false;
     platformStrategies = {};
     editedDrafts = {};
     draftVersions = {};
@@ -789,8 +869,14 @@
 
   function bind() {
     ["sourceTitle", "sourceBody", "sampleInput", "audienceInput", "toneSelect", "tagToggle", "ctaToggle"].forEach(function (id) {
-      byId(id).addEventListener("input", render);
-      byId(id).addEventListener("change", render);
+      byId(id).addEventListener("input", function () {
+        if (hasScored) scoreDirty = true;
+        render();
+      });
+      byId(id).addEventListener("change", function () {
+        if (hasScored) scoreDirty = true;
+        render();
+      });
     });
     byId("generateBtn").addEventListener("click", generate);
     byId("analyzeBtn").addEventListener("click", analyzePlatformTrends);
@@ -800,6 +886,12 @@
     byId("exportBtn").addEventListener("click", exportAllDrafts);
     byId("saveEditBtn").addEventListener("click", saveManualEdit);
     byId("restoreDraftBtn").addEventListener("click", restoreAiDraft);
+    byId("rescoreBtn").addEventListener("click", function () {
+      hasScored = true;
+      scoreDirty = false;
+      render();
+      showToast("\u5df2\u91cd\u65b0\u8bc4\u5206");
+    });
     byId("loadSampleBtn").addEventListener("click", loadSample);
     byId("resetDemoBtn").addEventListener("click", resetDemo);
   }
