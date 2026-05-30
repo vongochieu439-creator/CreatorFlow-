@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CreatorFlow 多平台内容发布助手</title>
-    <link rel="stylesheet" href="./src/styles.css?v=2026053019" />
+    <link rel="stylesheet" href="./src/styles.css?v=2026053020" />
   </head>
   <body>
     <div class="app-shell workspace-shell">
@@ -17,7 +17,6 @@
         <nav class="nav-list">
           <button class="nav-item is-active" type="button" data-view="compose">创作台</button>
           <button class="nav-item" type="button" data-view="strategy">AI策略</button>
-          <button class="nav-item" type="button" data-view="quality">质检评分</button>
           <button class="nav-item" type="button" data-view="publish">发布交付</button>
         </nav>
 
@@ -168,7 +167,7 @@
                 <section class="review-quality" aria-label="当前稿质检评分">
                   <div class="section-title-row">
                     <h3>当前稿质检评分</h3>
-                    <span>保存后即时检查</span>
+                    <button class="ghost-button mini-button" id="rescoreBtn" type="button">开始AI质检</button>
                   </div>
                   <div class="inline-quality-panel" id="inlineQualityPanel"></div>
                 </section>
@@ -196,28 +195,6 @@
               </div>
               <div class="strategy-board strategy-board-roomy" id="strategyBoard" aria-label="AI平台策略"></div>
             </section>
-          </section>
-
-          <section class="view-section" id="view-quality" aria-label="质检评分">
-            <div class="quality-grid-page">
-              <section class="preview-panel">
-                <div class="section-title-row">
-                  <h3>内容评分</h3>
-                  <button class="ghost-button mini-button" id="rescoreBtn" type="button">重新评分</button>
-                </div>
-                <div class="quality-panel" id="qualityPanel"></div>
-              </section>
-
-              <section class="preview-panel">
-                <h3>适配检查</h3>
-                <ul class="check-list" id="checkList"></ul>
-              </section>
-
-              <section class="preview-panel">
-                <h3>内容指标</h3>
-                <div class="metric-grid" id="metricGrid"></div>
-              </section>
-            </div>
           </section>
 
           <section class="view-section" id="view-publish" aria-label="发布交付">
@@ -260,6 +237,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026053019"></script>
+    <script src="./src/runtime.js?v=2026053020"></script>
   </body>
 </html>

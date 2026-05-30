@@ -54,6 +54,11 @@ function createServer() {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/quality") {
+      await handleQuality(req, res);
+      return;
+    }
+
     serveStatic(url.pathname, res);
   } catch (error) {
     sendJson(res, 500, { error: error.message });
@@ -62,6 +67,16 @@ function createServer() {
 }
 
 async function handleGenerate(req, res) {
+  const payload = await readJson(req);
+  await callModelJson(res, buildPrompt(payload), "You are a Chinese content operations assistant. Return strict JSON only. Do not copy viral examples; extract reusable platform patterns and create original drafts.");
+}
+
+async function handleQuality(req, res) {
+  const payload = await readJson(req);
+  await callModelJson(res, buildQualityPrompt(payload), "You are a strict Chinese content quality reviewer for multi-platform publishing. Return strict JSON only. Give practical review suggestions, not generic praise.");
+}
+
+async function callModelJson(res, prompt, systemMessage) {
   if (!apiBaseUrl || !apiKey || !model) {
     sendJson(res, 400, {
       error: "AI API is not configured. Set AI_API_BASE_URL, AI_API_KEY and AI_MODEL.",
@@ -80,8 +95,6 @@ async function handleGenerate(req, res) {
     return;
   }
 
-  const payload = await readJson(req);
-  const prompt = buildPrompt(payload);
   const response = await fetch(endpoint.href, {
     method: "POST",
     headers: {
@@ -95,8 +108,7 @@ async function handleGenerate(req, res) {
       messages: [
         {
           role: "system",
-          content:
-            "You are a Chinese content operations assistant. Return strict JSON only. Do not copy viral examples; extract reusable platform patterns and create original drafts.",
+          content: systemMessage,
         },
         { role: "user", content: prompt },
       ],
@@ -133,6 +145,7 @@ function buildPrompt(payload) {
         "Preserve the user's original meaning.",
         "Generate Chinese content.",
         "For each platform, return strategy and draft.",
+        "For each draft, also return explanation with four sections: platform strategy, key changes, reference sample influence and risk reminder.",
         "If reference samples are provided, analyze their reusable structure only: title patterns, openings, body rhythm, tags and interaction style.",
         "Never copy sentences from reference samples into the final draft.",
         "Mention risks if sample style is clickbait, exaggerated or not suitable for the user's source.",
@@ -157,9 +170,53 @@ function buildPrompt(payload) {
               summary: "string",
               body: ["string"],
               tags: ["string"],
+              explanation: {
+                source: "string",
+                sections: [
+                  { label: "平台策略", text: "string" },
+                  { label: "关键改动", text: "string" },
+                  { label: "样本影响", text: "string" },
+                  { label: "风险提醒", text: "string" },
+                ],
+              },
             },
           },
         ],
+      },
+    },
+    null,
+    2
+  );
+}
+
+function buildQualityPrompt(payload) {
+  return JSON.stringify(
+    {
+      task: "Review the current platform draft with real AI judgment. Do not simulate scores.",
+      requirements: [
+        "Output must be valid JSON.",
+        "Score should be strict and useful, from 0 to 100.",
+        "Evaluate whether the draft fits the target platform and audience.",
+        "Identify concrete risks, missing information and improvement opportunities.",
+        "Do not invent facts. Do not suggest copying viral content.",
+        "Generate Chinese review text.",
+      ],
+      platform: payload.platform,
+      strategy: payload.strategy,
+      source: payload.source,
+      draft: payload.draft,
+      outputSchema: {
+        score: 86,
+        items: [
+          { label: "标题吸引力", value: 85 },
+          { label: "结构完整度", value: 82 },
+          { label: "平台匹配度", value: 88 },
+          { label: "标签覆盖度", value: 78 },
+          { label: "风险控制", value: 90 },
+        ],
+        tips: ["string", "string", "string"],
+        risks: ["string", "string"],
+        summary: "string",
       },
     },
     null,

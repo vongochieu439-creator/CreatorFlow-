@@ -52,6 +52,7 @@
   var hasScored = false;
   var scoreDirty = false;
   var qualityResults = {};
+  var qualityArchives = {};
   var qualityLoading = {};
   var publishRecords = [];
   var publishSelections = {};
@@ -63,7 +64,6 @@
   var viewMeta = {
     compose: ["\u521b\u4f5c\u53f0", "\u8f93\u5165\u4e3b\u7a3f\u5e76\u751f\u6210\u5e73\u53f0\u7a3f"],
     strategy: ["AI\u7b56\u7565", "\u5206\u6790\u5e73\u53f0\u89c4\u5f8b\u548c\u53c2\u8003\u6837\u672c"],
-    quality: ["\u8d28\u68c0\u8bc4\u5206", "\u67e5\u770b\u5185\u5bb9\u98ce\u9669\u3001\u6307\u6807\u548c\u4f18\u5316\u5efa\u8bae"],
     publish: ["\u53d1\u5e03\u4ea4\u4ed8", "\u5bfc\u51fa\u7a3f\u4ef6\u3001\u6a21\u62df\u53d1\u5e03\u548c\u67e5\u770b\u901a\u9053"],
   };
 
@@ -287,9 +287,6 @@
     renderPlatformCards(input);
     renderStrategyBoard(input);
     renderPreview(activeDraft);
-    renderChecks(activeDraft);
-    renderQuality(activeDraft);
-    renderMetrics(activeDraft);
     renderRewriteExplanation(activeDraft);
     renderPublishSummary();
     renderPublisherGrid();
@@ -313,12 +310,12 @@
       message = "\u667a\u80fd\u4f18\u5316\u4e2d\uff1a\u6b63\u5728\u91cd\u5199" + aiRenderingLabel + "\u7a3f\u4ef6\uff0c\u5efa\u8bae\u7a0d\u7b49\u518d\u7f16\u8f91\u3002";
     } else if (previewDirty) {
       className += " is-warning";
-      message = "\u5f53\u524d\u7a3f\u6709\u672a\u4fdd\u5b58\u4fee\u6539\uff1a\u53ef\u7ee7\u7eed\u7f16\u8f91\uff0c\u70b9\u51fb\u4fdd\u5b58\u540e\u4f1a\u91cd\u65b0 AI \u8d28\u68c0\u3002";
+      message = "\u5f53\u524d\u7a3f\u6709\u672a\u4fdd\u5b58\u4fee\u6539\uff1a\u53ef\u7ee7\u7eed\u7f16\u8f91\uff0c\u4fdd\u5b58\u540e\u53ef\u4e3b\u52a8\u5f00\u59cb AI \u8d28\u68c0\u3002";
     } else if (qualityBusy) {
       className += " is-working";
-      message = "AI\u8d28\u68c0\u4e2d\uff1a\u53ef\u4ee5\u7ee7\u7eed\u7f16\u8f91\uff0c\u4fdd\u5b58\u540e\u4f1a\u4ee5\u6700\u65b0\u7a3f\u91cd\u65b0\u8d28\u68c0\u3002";
+      message = "AI\u8d28\u68c0\u4e2d\uff1a\u53ef\u4ee5\u7ee7\u7eed\u7f16\u8f91\uff0c\u8fd9\u6b21\u7ed3\u679c\u4f1a\u5bf9\u5e94\u5f53\u524d\u9001\u68c0\u7248\u672c\u3002";
     } else {
-      var record = qualityResults[draft.platform.id];
+      var record = getQualityRecord(draft);
       if (record && record.result) {
         className += " is-ready";
         message = "AI\u8d28\u68c0\u5df2\u5b8c\u6210\uff1a\u53ef\u67e5\u770b\u8bc4\u5206\u5efa\u8bae\uff0c\u4e5f\u53ef\u7ee7\u7eed\u5fae\u8c03\u5e76\u4fdd\u5b58\u3002";
@@ -418,7 +415,6 @@
       hasScored = true;
       scoreDirty = false;
       render();
-      requestAiQuality(makeDraft(getSelectedPlatform(), getInput()));
       byId("generationState").textContent = "\u5df2\u5b8c\u6210\u667a\u80fd\u4f18\u5316";
       showToast("\u667a\u80fd\u4f18\u5316\u5b8c\u6210");
     } catch (error) {
@@ -457,10 +453,7 @@
       delete editedDrafts[platform.id];
       delete qualityResults[platform.id];
       publishSelections[platform.id] = "ai";
-      hasScored = true;
-      scoreDirty = false;
       render();
-      requestAiQuality(makeDraft(platform, getInput()));
       byId("generationState").textContent = "\u5df2\u5b8c\u6210" + platform.name + "\u667a\u80fd\u4f18\u5316";
       showToast(platform.name + "\u7a3f\u5df2\u91cd\u65b0\u4f18\u5316");
     } catch (error) {
@@ -614,9 +607,6 @@
         selectedId = platform.id;
         previewDirty = false;
         render();
-        if (generationCount && !qualityResults[platform.id]) {
-          requestAiQuality(makeDraft(platform, getInput()));
-        }
         showToast("\u5df2\u5207\u6362\u5230" + platform.name + "\u53d1\u5e03\u7a3f");
       });
       grid.appendChild(button);
@@ -691,6 +681,10 @@
       var item = document.createElement("article");
       var textLength = version.parts.body.join("").length;
       var tagCount = version.parts.tags.length;
+      var qualityRecord = getQualityRecordForParts(draft.platform.id, version.parts);
+      var qualityBadge = qualityRecord && qualityRecord.result
+        ? '<span class="version-score is-scored">AI质检 ' + qualityRecord.result.score + '</span>'
+        : '<span class="version-score">未评分</span>';
       item.className = "version-item";
       item.innerHTML =
         '<div class="version-item-main">' +
@@ -699,6 +693,7 @@
         '<small>' + textLength + ' \u5b57 · ' + tagCount + ' \u6807\u7b7e</small>' +
         '</div>' +
         '<div class="version-actions">' +
+        qualityBadge +
         '<button class="secondary-button mini-button" type="button" data-action="use">\u4f7f\u7528\u6b64\u7248\u672c</button>' +
         '<button class="ghost-button mini-button" type="button" data-action="publish">\u8bbe\u4e3a\u53d1\u5e03\u7248</button>' +
         '</div>';
@@ -784,11 +779,6 @@
     });
   }
 
-  function renderQuality(draft) {
-    var panel = byId("qualityPanel");
-    renderQualityBox(panel, draft, "综合分");
-  }
-
   function renderInlineQuality(draft) {
     var panel = byId("inlineQualityPanel");
     if (!panel) return;
@@ -798,30 +788,35 @@
   function renderQualityBox(panel, draft, scoreLabel) {
     var scoredDraft = getEffectiveDraftForScoring(draft);
     var key = qualityKey(scoredDraft);
-    var record = qualityResults[draft.platform.id];
+    var record = getQualityRecord(draft);
+    var button = byId("rescoreBtn");
+    if (button) {
+      button.disabled = Boolean(qualityLoading[draft.platform.id]);
+      button.textContent = record && record.result ? "\u91cd\u65b0AI\u8d28\u68c0" : "\u5f00\u59cbAI\u8d28\u68c0";
+    }
 
     if (!generationCount) {
-      panel.innerHTML = '<p class="empty-state">\u751f\u6210\u5e73\u53f0\u7a3f\u540e\uff0c\u8fd9\u91cc\u4f1a\u8c03\u7528\u771f\u5b9e AI \u8fdb\u884c\u8d28\u68c0\u3002</p>';
+      panel.innerHTML = '<p class="empty-state">\u751f\u6210\u5e73\u53f0\u7a3f\u540e\uff0c\u53ef\u4e3b\u52a8\u70b9\u51fb\u300c\u5f00\u59cbAI\u8d28\u68c0\u300d\u68c0\u67e5\u5f53\u524d\u7248\u672c\u3002</p>';
       return;
     }
 
     if (previewDirty && draft.platform.id === selectedId) {
-      panel.innerHTML = '<p class="score-stale">\u5f53\u524d\u7a3f\u6709\u672a\u4fdd\u5b58\u4fee\u6539\u3002AI \u8d28\u68c0\u4e0d\u4f1a\u5728\u8f93\u5165\u4e2d\u53cd\u590d\u6d88\u8017 API\uff0c\u70b9\u51fb\u300c\u4fdd\u5b58\u5f53\u524d\u7248\u672c\u300d\u540e\u4f1a\u81ea\u52a8\u91cd\u65b0\u8d28\u68c0\u3002</p>';
+      panel.innerHTML = '<p class="score-stale">\u5f53\u524d\u7a3f\u6709\u672a\u4fdd\u5b58\u4fee\u6539\u3002AI \u8d28\u68c0\u4e0d\u4f1a\u5728\u8f93\u5165\u4e2d\u53cd\u590d\u6d88\u8017 API\uff0c\u8bf7\u5148\u4fdd\u5b58\u7248\u672c\uff0c\u9700\u8981\u65f6\u518d\u70b9\u51fb\u300c\u5f00\u59cbAI\u8d28\u68c0\u300d\u3002</p>';
       return;
     }
 
     if (qualityLoading[draft.platform.id]) {
-      panel.innerHTML = '<p class="score-stale">AI \u8d28\u68c0\u4e2d\uff1a\u6b63\u5728\u5206\u6790\u5e73\u53f0\u5339\u914d\u3001\u98ce\u9669\u548c\u6539\u8fdb\u5efa\u8bae\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u7f16\u8f91\uff0c\u4fdd\u5b58\u540e\u4f1a\u4ee5\u6700\u65b0\u7248\u91cd\u65b0\u8d28\u68c0\u3002</p>';
+      panel.innerHTML = '<p class="score-stale">AI \u8d28\u68c0\u4e2d\uff1a\u6b63\u5728\u5206\u6790\u5e73\u53f0\u5339\u914d\u3001\u98ce\u9669\u548c\u6539\u8fdb\u5efa\u8bae\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u7f16\u8f91\uff0c\u5f53\u524d\u7ed3\u679c\u4f1a\u7ed1\u5b9a\u5230\u9001\u68c0\u65f6\u7684\u7248\u672c\u3002</p>';
       return;
     }
 
     if (!record) {
-      panel.innerHTML = '<p class="empty-state">\u5c1a\u672a\u5b8c\u6210\u771f\u5b9e AI \u8d28\u68c0\u3002\u70b9\u51fb\u300c\u91cd\u65b0\u8bc4\u5206\u300d\u6216\u4fdd\u5b58\u5f53\u524d\u7248\u672c\u540e\u5f00\u59cb\u8d28\u68c0\u3002</p>';
+      panel.innerHTML = '<p class="empty-state">\u5c1a\u672a\u5bf9\u5f53\u524d\u7248\u672c\u8fdb\u884c AI \u8d28\u68c0\u3002\u5982\u679c\u8fd9\u4e2a\u7248\u672c\u503c\u5f97\u68c0\u67e5\uff0c\u70b9\u51fb\u300c\u5f00\u59cbAI\u8d28\u68c0\u300d\u3002</p>';
       return;
     }
 
     if (record.key !== key) {
-      panel.innerHTML = '<p class="score-stale">\u5f53\u524d\u7a3f\u5df2\u53d8\u66f4\uff0c\u9700\u8981\u91cd\u65b0\u8c03\u7528 AI \u8d28\u68c0\u3002</p>';
+      panel.innerHTML = '<p class="score-stale">\u5f53\u524d\u7a3f\u548c\u4e0a\u6b21\u8d28\u68c0\u7248\u672c\u4e0d\u4e00\u81f4\u3002\u53ef\u4ee5\u7ee7\u7eed\u4fdd\u5b58\u7248\u672c\uff0c\u9700\u8981\u65f6\u518d\u4e3b\u52a8\u5f00\u59cb AI \u8d28\u68c0\u3002</p>';
       return;
     }
 
@@ -853,6 +848,38 @@
       body: draft.body,
       tags: draft.tags,
     });
+  }
+
+  function qualityKeyForParts(platformId, parts) {
+    return JSON.stringify({
+      platform: platformId,
+      title: parts.title,
+      summary: parts.summary,
+      body: parts.body,
+      tags: parts.tags,
+    });
+  }
+
+  function getQualityRecord(draft) {
+    var scoredDraft = getEffectiveDraftForScoring(draft);
+    var key = qualityKey(scoredDraft);
+    return getQualityRecordByKey(draft.platform.id, key);
+  }
+
+  function getQualityRecordForParts(platformId, parts) {
+    return getQualityRecordByKey(platformId, qualityKeyForParts(platformId, parts));
+  }
+
+  function getQualityRecordByKey(platformId, key) {
+    var latest = qualityResults[platformId];
+    if (latest && latest.key === key) return latest;
+    return qualityArchives[platformId] && qualityArchives[platformId][key];
+  }
+
+  function saveQualityRecord(platformId, key, record) {
+    qualityResults[platformId] = record;
+    if (!qualityArchives[platformId]) qualityArchives[platformId] = {};
+    qualityArchives[platformId][key] = record;
   }
 
   async function requestAiQuality(draft) {
@@ -895,10 +922,10 @@
       if (!result.items.length || !result.tips.length) {
         throw new Error("\u6a21\u578b\u8fd4\u56de\u7684\u8d28\u68c0\u7ed3\u6784\u4e0d\u5b8c\u6574");
       }
-      qualityResults[platformId] = { key: key, result: result };
+      saveQualityRecord(platformId, key, { key: key, result: result });
       showToast("\u771f\u5b9e AI \u8d28\u68c0\u5b8c\u6210");
     } catch (error) {
-      qualityResults[platformId] = { key: key, error: error.message || "\u672a\u77e5\u9519\u8bef" };
+      saveQualityRecord(platformId, key, { key: key, error: error.message || "\u672a\u77e5\u9519\u8bef" });
       showToast("AI \u8d28\u68c0\u5931\u8d25\uff0c\u672a\u4f7f\u7528\u6a21\u62df\u8bc4\u5206");
     } finally {
       qualityLoading[platformId] = false;
@@ -1077,6 +1104,7 @@
     sampleSource = "\u672a\u63d0\u4f9b\u53c2\u8003\u6837\u672c";
     aiDrafts = {};
     qualityResults = {};
+    qualityArchives = {};
     publishSelections = {};
     hasScored = false;
     scoreDirty = false;
@@ -1091,11 +1119,9 @@
       byId("generateBtn").textContent = "\u91cd\u65b0\u751f\u6210\u5e73\u53f0\u7a3f";
       byId("generationState").textContent = "\u5df2\u751f\u6210 4 \u4e2a\u5e73\u53f0\u7248\u672c";
       byId("generationBanner").classList.remove("is-working");
-      hasScored = true;
       composeStep = "draft";
       previewDirty = false;
       render();
-      requestAiQuality(makeDraft(getSelectedPlatform(), getInput()));
       showToast(analysisCount ? "\u5df2\u57fa\u4e8e AI \u5e73\u53f0\u7b56\u7565\u751f\u6210\u7a3f\u4ef6" : "\u5df2\u751f\u6210\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7a3f\u4ef6");
     }, 250);
   }
@@ -1271,9 +1297,7 @@
     });
     publishSelections[platform.id] = versionId;
     draftVersions[platform.id] = draftVersions[platform.id].slice(0, 8);
-    scoreDirty = true;
     render();
-    requestAiQuality(makeDraft(platform, getInput()));
     showToast("\u5df2\u4fdd\u5b58" + platform.name + "\u5f53\u524d\u7248\u672c");
   }
 
@@ -1282,7 +1306,6 @@
     delete editedDrafts[platform.id];
     previewDirty = false;
     render();
-    requestAiQuality(makeDraft(platform, getInput()));
     showToast("\u5df2\u6062\u590d" + platform.name + " AI \u7248\u672c");
   }
 
@@ -1307,6 +1330,7 @@
     previewDirty = false;
     aiRendering = false;
     qualityResults = {};
+    qualityArchives = {};
     qualityLoading = {};
     platformStrategies = {};
     editedDrafts = {};
@@ -1334,11 +1358,9 @@
   function bind() {
     ["sourceTitle", "sourceBody", "sampleInput", "audienceInput", "toneSelect", "tagToggle", "ctaToggle"].forEach(function (id) {
       byId(id).addEventListener("input", function () {
-        if (hasScored) scoreDirty = true;
         render();
       });
       byId(id).addEventListener("change", function () {
-        if (hasScored) scoreDirty = true;
         render();
       });
     });
