@@ -345,22 +345,198 @@
     draftStep.classList.toggle("is-active", composeStep === "draft");
   }
 
-  function analyzePlatformTrends() {
-    analysisCount += 1;
-    byId("analyzeBtn").disabled = true;
-    byId("analyzeBtn").textContent = "AI\u5206\u6790\u4e2d";
-    byId("generationState").textContent = "\u6b63\u5728\u5206\u6790\u5e73\u53f0\u7206\u6b3e\u89c4\u5f8b";
+  async function analyzePlatformTrends() {
+    var samplePool = collectTrendSamples();
+    var sampleCount = samplePool.reduce(function (total, item) {
+      return total + item.samples.length;
+    }, 0);
+    if (!sampleCount) {
+      showToast("\u8bf7\u5148\u7c98\u8d34\u81f3\u5c11\u4e00\u4e2a\u5e73\u53f0\u6837\u672c");
+      return;
+    }
 
-    window.setTimeout(function () {
-      platforms.forEach(function (platform) {
-        platformStrategies[platform.id] = buildStrategy(platform, getInput());
+    byId("analyzeBtn").disabled = true;
+    byId("analyzeBtn").textContent = "\u5206\u6790\u4e2d";
+    if (byId("generationState")) byId("generationState").textContent = "\u6b63\u5728\u57fa\u4e8e\u6837\u672c\u5206\u6790\u5e73\u53f0\u7b56\u7565";
+
+    try {
+      var response = await apiFetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platforms: buildAiPlatformPayload(platforms),
+          samplePool: samplePool,
+        }),
       });
-      byId("analyzeBtn").disabled = false;
-      byId("analyzeBtn").textContent = "\u91cd\u65b0AI\u5206\u6790";
-      byId("generationState").textContent = "\u5df2\u5f62\u6210 4 \u4e2a\u5e73\u53f0\u5185\u5bb9\u7b56\u7565";
+      var data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "\u5e73\u53f0\u6837\u672c\u5206\u6790\u5931\u8d25");
+      }
+      applyStrategyResponse(data);
+      analysisCount += 1;
+      sampleSource = "\u7b56\u7565\u6765\u6e90\uff1a\u7528\u6237\u63d0\u4f9b\u7684\u5e73\u53f0\u7206\u6b3e\u6837\u672c + \u771f\u5b9e API";
+      if (byId("generationState")) byId("generationState").textContent = "\u5df2\u57fa\u4e8e\u6837\u672c\u5f62\u6210\u5e73\u53f0\u7b56\u7565";
       render();
-      showToast("AI \u5df2\u5206\u6790 4 \u4e2a\u5e73\u53f0\u7684\u7206\u6b3e\u5185\u5bb9\u89c4\u5f8b");
-    }, 360);
+      showToast("\u5df2\u5b8c\u6210\u771f\u5b9e AI \u6837\u672c\u7b56\u7565\u5206\u6790");
+    } catch (error) {
+      showToast((error.message || "\u5e73\u53f0\u6837\u672c\u5206\u6790\u5931\u8d25") + "\uff0c\u672a\u4f7f\u7528\u6a21\u62df\u7b56\u7565");
+    } finally {
+      byId("analyzeBtn").disabled = false;
+      byId("analyzeBtn").textContent = "\u5206\u6790\u5e73\u53f0\u6837\u672c";
+    }
+  }
+
+  async function collectTrendLinks() {
+    var links = parseTrendLinkInput();
+    if (!links.length) {
+      showToast("\u8bf7\u5148\u7c98\u8d34\u81f3\u5c11\u4e00\u4e2a\u516c\u5f00\u94fe\u63a5");
+      return;
+    }
+
+    var button = byId("collectLinksBtn");
+    var resultList = byId("collectResultList");
+    button.disabled = true;
+    byId("analyzeBtn").disabled = true;
+    button.textContent = "\u91c7\u96c6\u4e2d";
+    resultList.innerHTML = '<div class="collect-result-item is-pending">\u6b63\u5728\u91c7\u96c6\u516c\u5f00\u9875\u9762\uff0c\u5b8c\u6210\u540e\u4f1a\u81ea\u52a8\u5206\u6790\u7b56\u7565...</div>';
+
+    try {
+      var response = await apiFetch("/api/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ links: links }),
+      });
+      var data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "\u516c\u5f00\u94fe\u63a5\u91c7\u96c6\u5931\u8d25");
+      }
+
+      var collected = applyCollectedSamples(data.items || []);
+      renderCollectResults(data.items || []);
+      if (!collected) {
+        showToast("\u672a\u91c7\u96c6\u5230\u53ef\u5206\u6790\u7684\u516c\u5f00\u5185\u5bb9");
+        return;
+      }
+
+      showToast("\u5df2\u91c7\u96c6\u516c\u5f00\u6837\u672c\uff0c\u5f00\u59cb AI \u7b56\u7565\u5206\u6790");
+      await analyzePlatformTrends();
+    } catch (error) {
+      resultList.innerHTML = '<div class="collect-result-item is-error">' + (error.message || "\u91c7\u96c6\u5931\u8d25") + "</div>";
+      showToast((error.message || "\u91c7\u96c6\u5931\u8d25") + "\uff0c\u53ef\u6539\u4e3a\u624b\u52a8\u7c98\u8d34\u6837\u672c");
+    } finally {
+      button.disabled = false;
+      byId("analyzeBtn").disabled = false;
+      button.textContent = "\u91c7\u96c6\u5e76\u5206\u6790\u94fe\u63a5";
+    }
+  }
+
+  function parseTrendLinkInput() {
+    var field = byId("trendLinkInput");
+    var lines = text(field ? field.value : "").split(/\n+/);
+    return lines.map(function (line) {
+      var raw = line.trim();
+      if (!raw) return null;
+      var urlMatch = raw.match(/https?:\/\/[^\s]+/i);
+      if (!urlMatch) return null;
+      return {
+        url: urlMatch[0].replace(/[，。；,;]+$/, ""),
+        platformId: guessPlatformId(raw),
+      };
+    }).filter(Boolean).slice(0, 8);
+  }
+
+  async function apiFetch(path, options) {
+    var origins = [window.location.origin];
+    if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+      for (var port = 5173; port <= 5183; port += 1) {
+        var origin = window.location.protocol + "//" + window.location.hostname + ":" + port;
+        if (origins.indexOf(origin) < 0) origins.push(origin);
+      }
+    }
+
+    var lastError = null;
+    for (var i = 0; i < origins.length; i += 1) {
+      try {
+        var response = await fetch(origins[i] + path, options);
+        if (response.status !== 404) return response;
+        lastError = new Error("API not found on " + origins[i]);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("API request failed");
+  }
+
+  function guessPlatformId(value) {
+    var lower = value.toLowerCase();
+    if (value.indexOf("\u516c\u4f17\u53f7") >= 0 || lower.indexOf("mp.weixin.qq.com") >= 0) return "wechat";
+    if (value.indexOf("\u77e5\u4e4e") >= 0 || lower.indexOf("zhihu.com") >= 0) return "zhihu";
+    if (value.indexOf("B\u7ad9") >= 0 || lower.indexOf("bilibili.com") >= 0) return "bilibili";
+    if (value.indexOf("\u5c0f\u7ea2\u4e66") >= 0 || lower.indexOf("xiaohongshu.com") >= 0 || lower.indexOf("xhslink.com") >= 0) return "xiaohongshu";
+    return selectedId;
+  }
+
+  function applyCollectedSamples(items) {
+    var count = 0;
+    items.forEach(function (item) {
+      if (!item || !item.ok || !item.sample) return;
+      var field = byId("trendSample_" + item.platformId);
+      if (!field) return;
+      var prefix = "\u6765\u81ea\u516c\u5f00\u94fe\u63a5\uff1a" + item.url + "\n";
+      field.value = [text(field.value), prefix + item.sample].filter(Boolean).join("\n---\n");
+      count += 1;
+    });
+    return count;
+  }
+
+  function renderCollectResults(items) {
+    var resultList = byId("collectResultList");
+    if (!resultList) return;
+    if (!items.length) {
+      resultList.innerHTML = "";
+      return;
+    }
+    resultList.innerHTML = "";
+    items.forEach(function (item) {
+      var el = document.createElement("div");
+      el.className = "collect-result-item" + (item.ok ? " is-ok" : " is-error");
+      el.textContent = item.ok
+        ? "\u5df2\u91c7\u96c6\uff1a" + platformName(item.platformId) + " · " + (item.title || item.url)
+        : "\u91c7\u96c6\u5931\u8d25\uff1a" + platformName(item.platformId) + " · " + (item.error || item.url);
+      resultList.appendChild(el);
+    });
+  }
+
+  function platformName(platformId) {
+    var platform = platforms.find(function (item) {
+      return item.id === platformId;
+    });
+    return platform ? platform.name : "\u672a\u8bc6\u522b\u5e73\u53f0";
+  }
+
+  function collectTrendSamples() {
+    return platforms.map(function (platform) {
+      var field = byId("trendSample_" + platform.id);
+      return {
+        id: platform.id,
+        name: platform.name,
+        samples: parseSamples(field ? text(field.value) : ""),
+      };
+    });
+  }
+
+  function applyStrategyResponse(data) {
+    var list = Array.isArray(data.platforms) ? data.platforms : [];
+    var nextStrategies = {};
+    list.forEach(function (item) {
+      if (item && item.id && item.strategy) {
+        nextStrategies[item.id] = normalizeStrategy(item.id, item.strategy);
+      }
+    });
+    if (!Object.keys(nextStrategies).length) {
+      throw new Error("\u6a21\u578b\u8fd4\u56de\u7ed3\u6784\u4e2d\u6ca1\u6709 strategy");
+    }
+    platformStrategies = Object.assign({}, platformStrategies, nextStrategies);
   }
 
   function buildAiPlatformPayload(platformList) {
@@ -499,6 +675,7 @@
       structure: Array.isArray(strategy.structure) && strategy.structure.length ? strategy.structure.map(String) : fallback.structure,
       tags: Array.isArray(strategy.tags) && strategy.tags.length ? strategy.tags.map(String) : fallback.tags,
       risk: String(strategy.risk || fallback.risk),
+      evidence: String(strategy.evidence || "\u57fa\u4e8e\u9884\u7f6e\u5e73\u53f0\u753b\u50cf"),
     };
   }
 
@@ -570,16 +747,18 @@
     board.innerHTML = "";
     platforms.forEach(function (platform) {
       var strategy = platformStrategies[platform.id] || strategyTemplates[platform.id];
+      var hasRealEvidence = analysisCount > 0 && strategy.evidence && strategy.evidence !== "\u57fa\u4e8e\u9884\u7f6e\u5e73\u53f0\u753b\u50cf";
       var card = document.createElement("article");
       card.className = "strategy-card" + (platform.id === selectedId ? " is-active" : "");
       card.style.setProperty("--accent", platform.accent);
       card.innerHTML =
-        '<div class="strategy-card-head"><span>' + platform.name + '</span><strong>' + (analysisCount ? "AI\u5df2\u5206\u6790" : "\u9884\u7f6e\u7b56\u7565") + "</strong></div>" +
+        '<div class="strategy-card-head"><span>' + platform.name + '</span><strong>' + (hasRealEvidence ? "\u771f\u5b9e\u6837\u672c\u5206\u6790" : "\u9884\u7f6e\u7b56\u7565") + "</strong></div>" +
         '<p class="strategy-main">' + strategy.headline + "</p>" +
         '<dl>' +
         '<div><dt>\u6807\u9898\u89c4\u5f8b</dt><dd>' + strategy.titlePatterns[0] + "</dd></div>" +
         '<div><dt>\u5f00\u5934\u65b9\u5f0f</dt><dd>' + strategy.opening + "</dd></div>" +
         '<div><dt>\u5185\u5bb9\u7ed3\u6784</dt><dd>' + strategy.structure.join(" / ") + "</dd></div>" +
+        '<div><dt>\u6837\u672c\u4f9d\u636e</dt><dd>' + strategy.evidence + "</dd></div>" +
         '<div><dt>\u98ce\u9669\u63d0\u9192</dt><dd>' + strategy.risk + "</dd></div>" +
         "</dl>";
       card.addEventListener("click", function () {
@@ -1314,8 +1493,17 @@
     byId("sourceBody").value = "\u5f88\u591a\u521b\u4f5c\u8005\u4f1a\u5148\u5199\u4e00\u7bc7\u5b8c\u6574\u7a3f\u4ef6\uff0c\u518d\u5206\u522b\u590d\u5236\u5230\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7b49\u5e73\u53f0\u3002\n\n\u66f4\u597d\u7684\u65b9\u5f0f\u662f\u4fdd\u7559\u540c\u4e00\u4e2a\u6838\u5fc3\u89c2\u70b9\uff0c\u518d\u9488\u5bf9\u5e73\u53f0\u8fdb\u884c\u683c\u5f0f\u5316\u9002\u914d\u3002\n\n\u8fd9\u4e2a\u5de5\u5177\u5e0c\u671b\u628a\u91cd\u590d\u52b3\u52a8\u81ea\u52a8\u5316\uff0c\u8f93\u5165\u4e00\u4efd\u4e3b\u7a3f\u5c31\u80fd\u751f\u6210\u4e0d\u540c\u5e73\u53f0\u7248\u672c\u3002";
     byId("sampleInput").value = "\u6837\u672c1\uff1a\u65b0\u624b\u505a\u5185\u5bb9\u6700\u5bb9\u6613\u5361\u5728\u4e00\u7a3f\u591a\u53d1\uff0c\u5efa\u8bae\u5148\u62c6\u5e73\u53f0\u89c4\u5219\uff0c\u518d\u6539\u6807\u9898\u548c\u7ed3\u6784\u3002\n---\n\u6837\u672c2\uff1a\u4e0d\u8981\u76f4\u63a5\u590d\u5236\u540c\u4e00\u7bc7\u7b14\u8bb0\uff0c\u5c0f\u7ea2\u4e66\u8981\u6e05\u5355\u5316\uff0c\u77e5\u4e4e\u8981\u8bb2\u903b\u8f91\uff0cB\u7ad9\u8981\u7ed9\u770b\u70b9\u65f6\u95f4\u8f74\u3002";
     byId("audienceInput").value = "\u4e2a\u4eba\u521b\u4f5c\u8005\u548c\u65b0\u5a92\u4f53\u8fd0\u8425";
+    setTrendSample("wechat", "\u6807\u9898\uff1a\u4e00\u7a3f\u591a\u53d1\u4e0d\u662f\u590d\u5236\u7c98\u8d34\uff1a\u521b\u4f5c\u8005\u5fc5\u987b\u4fdd\u7559\u7684 4 \u4e2a\u5e73\u53f0\u903b\u8f91\n\u7ed3\u6784\uff1a\u5148\u8bf4\u75db\u70b9\uff0c\u518d\u7ed9\u65b9\u6cd5\u8bba\uff0c\u6700\u540e\u7528\u6e05\u5355\u603b\u7ed3\u3002\n\u4e92\u52a8\uff1a\u5f15\u5bfc\u8bfb\u8005\u6536\u85cf\u5e76\u5bf9\u7167\u81ea\u5df1\u7684\u53d1\u5e03\u6d41\u7a0b\u3002");
+    setTrendSample("zhihu", "\u95ee\u9898\uff1a\u4e3a\u4ec0\u4e48\u540c\u4e00\u7bc7\u5185\u5bb9\u53d1\u5230\u4e0d\u540c\u5e73\u53f0\u6548\u679c\u5dee\u5f88\u591a\uff1f\n\u9ad8\u8d5e\u5f00\u5934\uff1a\u56e0\u4e3a\u7528\u6237\u7684\u9605\u8bfb\u4efb\u52a1\u4e0d\u540c\uff0c\u4e0d\u662f\u6587\u6848\u8d28\u91cf\u7a81\u7136\u53d8\u5dee\u3002\n\u7ed3\u6784\uff1a\u5148\u7ed3\u8bba\uff0c\u518d\u62c6\u539f\u56e0\uff0c\u7528\u6848\u4f8b\u8bf4\u660e\uff0c\u6700\u540e\u7ed9\u53ef\u64cd\u4f5c\u5efa\u8bae\u3002");
+    setTrendSample("bilibili", "\u89c6\u9891\u6807\u9898\uff1a\u6211\u7528 10 \u5206\u949f\u628a\u4e00\u7bc7\u7a3f\u53d8\u6210 4 \u4e2a\u5e73\u53f0\u7248\u672c\n\u7b80\u4ecb\uff1a\u524d 30 \u79d2\u5c55\u793a\u6548\u679c\uff0c\u518d\u62c6\u6b65\u9aa4\u3002\n\u65f6\u95f4\u8f74\uff1a00:00 \u75db\u70b9 / 01:20 \u5e73\u53f0\u5dee\u5f02 / 03:40 \u5de5\u5177\u6f14\u793a / 07:30 \u53d1\u5e03\u68c0\u67e5\u3002");
+    setTrendSample("xiaohongshu", "\u6807\u9898\uff1a\u65b0\u624b\u535a\u4e3b\u522b\u518d\u4e00\u7a3f\u786c\u53d1\u4e86\uff01\u8fd9\u4efd\u591a\u5e73\u53f0\u6e05\u5355\u76f4\u63a5\u62ff\u8d70\n\u7b14\u8bb0\u8282\u594f\uff1a\u5148\u629b\u75db\u70b9\uff0c\u518d\u7ed9\u6e05\u5355\uff0c\u6bcf\u6761\u90fd\u662f\u5177\u4f53\u52a8\u4f5c\u3002\n\u6807\u7b7e\uff1a#\u5185\u5bb9\u8fd0\u8425 #\u65b0\u624b\u535a\u4e3b #\u6548\u7387\u5de5\u5177 #\u53d1\u5e03\u6e05\u5355");
     render();
     showToast("\u6837\u4f8b\u5185\u5bb9\u5df2\u8f7d\u5165");
+  }
+
+  function setTrendSample(platformId, value) {
+    var field = byId("trendSample_" + platformId);
+    if (field) field.value = value;
   }
 
   function resetDemo() {
@@ -1323,6 +1511,11 @@
     byId("sourceBody").value = "";
     byId("sampleInput").value = "";
     byId("audienceInput").value = "";
+    byId("trendLinkInput").value = "";
+    byId("collectResultList").innerHTML = "";
+    platforms.forEach(function (platform) {
+      setTrendSample(platform.id, "");
+    });
     generationCount = 0;
     analysisCount = 0;
     hasScored = false;
@@ -1365,6 +1558,7 @@
       });
     });
     byId("generateBtn").addEventListener("click", generate);
+    byId("collectLinksBtn").addEventListener("click", collectTrendLinks);
     byId("analyzeBtn").addEventListener("click", analyzePlatformTrends);
     byId("realAiBtn").addEventListener("click", callRealAi);
     byId("optimizeCurrentBtn").addEventListener("click", optimizeCurrentPlatform);

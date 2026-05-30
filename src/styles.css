@@ -492,6 +492,107 @@ body {
   grid-template-columns: repeat(4, minmax(220px, 1fr));
 }
 
+.trend-link-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.trend-link-panel span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trend-link-panel textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 12px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.trend-link-panel small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.collect-result-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.collect-result-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.collect-result-item.is-ok {
+  border-color: rgba(13, 122, 101, 0.24);
+  background: #f1fbf7;
+  color: var(--primary-strong);
+}
+
+.collect-result-item.is-error {
+  border-color: rgba(185, 28, 28, 0.18);
+  background: #fff5f5;
+  color: #9f1239;
+}
+
+.collect-result-item.is-pending {
+  border-color: rgba(180, 83, 9, 0.2);
+  background: #fff8eb;
+  color: #92400e;
+}
+
+.trend-sample-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.trend-sample-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.trend-sample-card span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trend-sample-card textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 12px;
+  color: var(--ink);
+  line-height: 1.65;
+}
+
+.trend-sample-card textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary) 24%, transparent);
+  border-color: var(--primary);
+  background: #fff;
+}
+
 button,
 input,
 select,
@@ -1575,6 +1676,10 @@ h4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .trend-sample-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .rewrite-grid {
     grid-template-columns: 1fr;
   }
@@ -1627,6 +1732,7 @@ h4 {
   .input-editor-panel .settings-grid,
   .platform-grid,
   .strategy-board,
+  .trend-sample-grid,
   .publish-summary,
   .metric-grid {
     grid-template-columns: 1fr;

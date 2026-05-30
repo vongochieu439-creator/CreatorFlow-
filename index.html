@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CreatorFlow 多平台内容发布助手</title>
-    <link rel="stylesheet" href="./src/styles.css?v=2026053020" />
+    <link rel="stylesheet" href="./src/styles.css?v=2026053023" />
   </head>
   <body>
     <div class="app-shell workspace-shell">
@@ -188,11 +188,43 @@
             <section class="preview-panel full-panel">
               <div class="panel-heading compact">
                 <div>
-                  <h2>AI 平台策略</h2>
-                  <p>先分析平台规律和参考样本，再指导不同平台的内容生成。</p>
+                  <h2>平台爆款样本分析</h2>
+                  <p>粘贴各平台公开样本或用户授权样本，系统会调用真实 AI 提取可复用策略。</p>
                 </div>
-                <button class="primary-button" id="analyzeBtn" type="button">AI分析爆款规律</button>
+                <div class="preview-actions">
+                  <button class="secondary-button" id="collectLinksBtn" type="button">采集并分析链接</button>
+                  <button class="primary-button" id="analyzeBtn" type="button">分析平台样本</button>
+                </div>
               </div>
+              <label class="trend-link-panel" for="trendLinkInput">
+                <span>公开链接采集</span>
+                <textarea
+                  id="trendLinkInput"
+                  spellcheck="false"
+                  placeholder="每行一个公开链接。可写平台名前缀，例如：小红书 https://www.xiaohongshu.com/..."
+                ></textarea>
+                <small>只采集公开可访问页面的标题、摘要和正文片段；登录内容、内网页面或访问失败的链接会跳过。</small>
+              </label>
+              <div class="collect-result-list" id="collectResultList"></div>
+              <div class="trend-sample-grid" id="trendSampleGrid">
+                <label class="trend-sample-card">
+                  <span>公众号样本</span>
+                  <textarea id="trendSample_wechat" spellcheck="false" placeholder="粘贴公众号爆款标题、摘要、正文结构或公开链接说明"></textarea>
+                </label>
+                <label class="trend-sample-card">
+                  <span>知乎样本</span>
+                  <textarea id="trendSample_zhihu" spellcheck="false" placeholder="粘贴知乎高赞回答/文章的标题、开头、论证结构"></textarea>
+                </label>
+                <label class="trend-sample-card">
+                  <span>B站样本</span>
+                  <textarea id="trendSample_bilibili" spellcheck="false" placeholder="粘贴B站热门视频标题、简介、时间轴、互动引导"></textarea>
+                </label>
+                <label class="trend-sample-card">
+                  <span>小红书样本</span>
+                  <textarea id="trendSample_xiaohongshu" spellcheck="false" placeholder="粘贴小红书热门笔记标题、正文节奏、标签、评论引导"></textarea>
+                </label>
+              </div>
+              <p class="panel-note">建议使用公开可访问或已获授权的样本内容；系统只提取结构规律，不复制原文表达。</p>
               <div class="strategy-board strategy-board-roomy" id="strategyBoard" aria-label="AI平台策略"></div>
             </section>
           </section>
@@ -237,6 +269,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026053020"></script>
+    <script src="./src/runtime.js?v=2026053023"></script>
   </body>
 </html>

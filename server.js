@@ -39,6 +39,11 @@ function createServer() {
   return http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (req.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      sendCors(res, 204);
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/health") {
       sendJson(res, 200, {
         ok: Boolean(apiBaseUrl && apiKey && model),
@@ -59,6 +64,16 @@ function createServer() {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/analyze") {
+      await handleAnalyze(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/collect") {
+      await handleCollect(req, res);
+      return;
+    }
+
     serveStatic(url.pathname, res);
   } catch (error) {
     sendJson(res, 500, { error: error.message });
@@ -74,6 +89,40 @@ async function handleGenerate(req, res) {
 async function handleQuality(req, res) {
   const payload = await readJson(req);
   await callModelJson(res, buildQualityPrompt(payload), "You are a strict Chinese content quality reviewer for multi-platform publishing. Return strict JSON only. Give practical review suggestions, not generic praise.");
+}
+
+async function handleAnalyze(req, res) {
+  const payload = await readJson(req);
+  await callModelJson(res, buildAnalyzePrompt(payload), "You are a Chinese multi-platform content strategist. Analyze only reusable patterns from user-provided public or authorized samples. Return strict JSON only. Do not copy sample wording.");
+}
+
+async function handleCollect(req, res) {
+  const payload = await readJson(req);
+  const links = Array.isArray(payload.links) ? payload.links.slice(0, 8) : [];
+  if (!links.length) {
+    sendJson(res, 400, { error: "No public links provided." });
+    return;
+  }
+
+  const items = await Promise.all(
+    links.map(async (item) => {
+      const url = String(item.url || "").trim();
+      const platformId = String(item.platformId || "unknown");
+      try {
+        const collected = await collectPublicPage(url);
+        return Object.assign({ platformId, url, ok: true }, collected);
+      } catch (error) {
+        return {
+          platformId,
+          url,
+          ok: false,
+          error: error.message,
+        };
+      }
+    })
+  );
+
+  sendJson(res, 200, { items });
 }
 
 async function callModelJson(res, prompt, systemMessage) {
@@ -224,6 +273,176 @@ function buildQualityPrompt(payload) {
   );
 }
 
+function buildAnalyzePrompt(payload) {
+  return JSON.stringify(
+    {
+      task: "Analyze user-provided platform sample pool and extract reusable viral content strategies.",
+      requirements: [
+        "Output must be valid JSON.",
+        "Analyze only samples provided by the user. Do not claim live crawling.",
+        "Do not copy sample sentences. Extract structure, rhythm, title patterns, openings, tags and interaction style.",
+        "Mention sample limitations and compliance risks if samples look clickbait, exaggerated or insufficient.",
+        "Generate Chinese strategy text.",
+      ],
+      platforms: payload.platforms,
+      samplePool: payload.samplePool,
+      outputSchema: {
+        platforms: [
+          {
+            id: "wechat",
+            strategy: {
+              headline: "string",
+              titlePatterns: ["string", "string", "string"],
+              opening: "string",
+              structure: ["string", "string", "string", "string"],
+              tags: ["string", "string", "string"],
+              risk: "string",
+              evidence: "string",
+            },
+          },
+        ],
+      },
+    },
+    null,
+    2
+  );
+}
+
+async function collectPublicPage(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error("链接格式无效");
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("只支持 http/https 公开链接");
+  }
+
+  if (isBlockedHost(url.hostname)) {
+    throw new Error("不采集本机或内网地址");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 9000);
+  let response;
+  try {
+    response = await fetch(url.href, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "CreatorFlowDemo/1.0 (+public content strategy analysis)",
+        Accept: "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    throw new Error(`公开页面访问失败：HTTP ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/html") && !contentType.includes("text/plain")) {
+    throw new Error("链接不是可解析的公开文本页面");
+  }
+
+  const html = (await response.text()).slice(0, 500000);
+  const title = extractTitle(html);
+  const description = extractMeta(html, "description") || extractMeta(html, "og:description");
+  const keywords = extractMeta(html, "keywords");
+  const headings = extractHeadings(html);
+  const body = extractBodyText(html);
+  const sample = [
+    title ? `标题：${title}` : "",
+    description ? `摘要：${description}` : "",
+    headings.length ? `结构线索：${headings.join(" / ")}` : "",
+    keywords ? `关键词：${keywords}` : "",
+    body ? `正文片段：${body}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (!sample) {
+    throw new Error("公开页面没有提取到可分析文本");
+  }
+
+  return {
+    title,
+    description,
+    sample: sample.slice(0, 4000),
+  };
+}
+
+function isBlockedHost(hostname) {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || host.endsWith(".local")) return true;
+  if (host === "::1" || host === "0.0.0.0") return true;
+  if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host)) return true;
+  const private172 = host.match(/^172\.(\d+)\./);
+  return Boolean(private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31);
+}
+
+function extractTitle(html) {
+  return decodeEntities(firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i)).slice(0, 120);
+}
+
+function extractMeta(html, name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const patterns = [
+    new RegExp(`<meta[^>]+(?:name|property)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i"),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:name|property)=["']${escaped}["'][^>]*>`, "i"),
+  ];
+  for (const pattern of patterns) {
+    const value = firstMatch(html, pattern);
+    if (value) return decodeEntities(value).slice(0, 240);
+  }
+  return "";
+}
+
+function extractHeadings(html) {
+  const headings = [];
+  html.replace(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi, (_, value) => {
+    const text = cleanText(value);
+    if (text && headings.length < 6) headings.push(text.slice(0, 60));
+    return "";
+  });
+  return headings;
+}
+
+function extractBodyText(html) {
+  const clean = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  return cleanText(clean).slice(0, 1400);
+}
+
+function firstMatch(source, pattern) {
+  const match = source.match(pattern);
+  return match ? match[1] || "" : "";
+}
+
+function cleanText(value) {
+  return decodeEntities(value)
+    .replace(/\s+/g, " ")
+    .replace(/[\u200b-\u200f\ufeff]/g, "")
+    .trim();
+}
+
+function decodeEntities(value) {
+  return String(value || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
 function serveStatic(pathname, res) {
   const requested = pathname === "/" ? "/index.html" : decodeURIComponent(pathname);
   const filePath = path.resolve(root, `.${requested}`);
@@ -266,8 +485,22 @@ function readJson(req) {
 }
 
 function sendJson(res, status, body) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  });
   res.end(JSON.stringify(body));
+}
+
+function sendCors(res, status) {
+  res.writeHead(status, {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+  });
+  res.end();
 }
 
 findAvailablePort(preferredPort).then((port) => {
