@@ -135,11 +135,47 @@ body {
 }
 
 .input-step {
-  max-width: 760px;
+  width: 100%;
+  max-width: none;
 }
 
 .input-step .editor-panel {
   min-height: calc(100vh - 128px);
+}
+
+.input-editor-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(380px, 1fr) auto auto auto;
+}
+
+.input-writing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+  gap: 16px;
+  min-height: 430px;
+}
+
+.writing-field {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+.writing-field span {
+  margin: 14px 0 8px;
+}
+
+.input-editor-panel .content-input,
+.input-editor-panel .sample-input {
+  min-height: 100%;
+}
+
+.input-editor-panel .settings-grid {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.input-editor-panel .editor-actions {
+  justify-content: flex-end;
 }
 
 .large-action {
@@ -173,6 +209,49 @@ body {
   font-size: 15px;
 }
 
+.ai-render-button {
+  min-width: 168px;
+  min-height: 48px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+.task-status {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 5px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.task-status.is-working {
+  background: #fff3d9;
+  color: var(--warning);
+}
+
+.task-status.is-blocking {
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.task-status.is-warning {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.task-status.is-ready {
+  background: #e6f5ef;
+  color: #0b684b;
+}
+
 .draft-step .compose-grid {
   grid-template-columns: minmax(520px, 1fr) minmax(300px, 0.58fr);
 }
@@ -186,6 +265,10 @@ body {
 
 .review-panel {
   align-self: start;
+}
+
+.focused-preview {
+  position: relative;
 }
 
 .diff-panel {
@@ -296,6 +379,27 @@ body {
   border-radius: var(--radius);
   background: #fff;
   padding: 14px;
+}
+
+.saved-version-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 14px;
+}
+
+.saved-version-panel .section-title-row {
+  margin-bottom: 10px;
+}
+
+.saved-version-panel .section-title-row span {
+  border-radius: 999px;
+  background: #e8f5f2;
+  color: var(--primary-strong);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .review-quality .section-title-row {
@@ -795,6 +899,38 @@ h4 {
   box-shadow: 0 0 0 3px rgba(18, 107, 103, 0.12);
 }
 
+.phone-preview [contenteditable="false"] {
+  cursor: wait;
+}
+
+.render-mask {
+  position: absolute;
+  inset: 92px 18px auto 18px;
+  z-index: 5;
+  display: none;
+  border: 1px solid rgba(153, 27, 27, 0.18);
+  border-radius: var(--radius);
+  background: rgba(255, 247, 247, 0.96);
+  color: #991b1b;
+  box-shadow: 0 16px 36px rgba(23, 32, 42, 0.14);
+  padding: 14px;
+}
+
+.render-mask.is-visible {
+  display: grid;
+  gap: 4px;
+}
+
+.render-mask strong {
+  font-size: 14px;
+}
+
+.render-mask span {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .phone-topline {
   width: 64px;
   height: 5px;
@@ -1251,20 +1387,25 @@ h4 {
 }
 
 .version-item {
-  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
-  padding: 8px;
+  padding: 10px;
   text-align: left;
 }
 
 .version-item:hover {
-  background: var(--soft);
+  border-color: rgba(18, 107, 103, 0.22);
+  background: #fbfcfd;
 }
 
 .version-item span,
-.version-item strong {
+.version-item strong,
+.version-item small {
   display: block;
 }
 
@@ -1277,6 +1418,19 @@ h4 {
   margin-top: 3px;
   color: var(--ink);
   font-size: 13px;
+}
+
+.version-item small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.version-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .manual-actions {
@@ -1392,6 +1546,7 @@ h4 {
 
   .compose-grid,
   .draft-step .compose-grid,
+  .input-writing-grid,
   .quality-grid-page,
   .publish-grid-page {
     grid-template-columns: 1fr;
@@ -1452,7 +1607,24 @@ h4 {
     grid-template-columns: 1fr;
   }
 
+  .ai-render-button {
+    width: 100%;
+  }
+
+  .version-item {
+    grid-template-columns: 1fr;
+  }
+
+  .version-actions {
+    justify-content: stretch;
+  }
+
+  .version-actions button {
+    flex: 1;
+  }
+
   .settings-grid,
+  .input-editor-panel .settings-grid,
   .platform-grid,
   .strategy-board,
   .publish-summary,

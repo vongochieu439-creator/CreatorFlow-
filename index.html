@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CreatorFlow 多平台内容发布助手</title>
-    <link rel="stylesheet" href="./src/styles.css?v=2026053015" />
+    <link rel="stylesheet" href="./src/styles.css?v=2026053019" />
   </head>
   <body>
     <div class="app-shell workspace-shell">
@@ -44,7 +44,7 @@
           <section class="view-section is-active" id="view-compose" aria-label="创作台">
             <div class="compose-flow">
               <div class="flow-step input-step is-active" id="inputStep">
-              <section class="editor-panel" aria-label="内容输入区">
+              <section class="editor-panel input-editor-panel" aria-label="内容输入区">
                 <div class="panel-heading">
                   <div>
                     <h2>原始内容</h2>
@@ -56,16 +56,22 @@
                 <label class="field-label" for="sourceTitle">标题</label>
                 <input id="sourceTitle" class="text-input" type="text" maxlength="80" />
 
-                <label class="field-label" for="sourceBody">正文</label>
-                <textarea id="sourceBody" class="content-input" spellcheck="false"></textarea>
+                <div class="input-writing-grid">
+                  <label class="field writing-field" for="sourceBody">
+                    <span>正文</span>
+                    <textarea id="sourceBody" class="content-input" spellcheck="false"></textarea>
+                  </label>
 
-                <label class="field-label" for="sampleInput">参考样本（可选）</label>
-                <textarea
-                  id="sampleInput"
-                  class="sample-input"
-                  spellcheck="false"
-                  placeholder="粘贴 1-3 篇优质内容样本，用 --- 分隔。AI 只分析结构规律，不复制原文。"
-                ></textarea>
+                  <label class="field writing-field" for="sampleInput">
+                    <span>参考样本（可选）</span>
+                    <textarea
+                      id="sampleInput"
+                      class="sample-input"
+                      spellcheck="false"
+                      placeholder="粘贴 1-3 篇优质内容样本，用 --- 分隔。AI 只分析结构规律，不复制原文。"
+                    ></textarea>
+                  </label>
+                </div>
 
                 <div class="settings-grid">
                   <label class="field">
@@ -105,8 +111,9 @@
                   <div>
                     <strong>四个平台稿工作台</strong>
                     <span id="generationState" class="generation-state">等待生成</span>
+                    <span class="task-status" id="taskStatus">当前无后台任务，可以编辑稿件。</span>
                   </div>
-                  <button class="secondary-button" id="realAiBtn" type="button">AI渲染</button>
+                  <button class="primary-button ai-render-button" id="realAiBtn" type="button">一键智能优化</button>
                 </div>
 
                 <div class="compose-grid">
@@ -120,6 +127,7 @@
                   <div class="preview-actions">
                     <button class="secondary-button" id="copyDraftBtn" type="button">复制当前稿</button>
                     <button class="secondary-button" id="saveEditBtn" type="button">保存当前版本</button>
+                    <button class="secondary-button" id="optimizeCurrentBtn" type="button">优化当前平台</button>
                     <button class="ghost-button" id="restoreDraftBtn" type="button">恢复AI版本</button>
                   </div>
                 </div>
@@ -135,6 +143,10 @@
                   <div class="preview-body" id="previewBody" contenteditable="true" spellcheck="false"></div>
                   <div class="tag-list" id="previewTags"></div>
                 </article>
+                <div class="render-mask" id="renderMask">
+                  <strong>正在智能优化稿件</strong>
+                  <span>优化完成后会更新当前内容，建议稍等再编辑。</span>
+                </div>
 
                 <section class="rewrite-panel" aria-label="AI改写说明">
                   <div class="section-title-row">
@@ -152,7 +164,6 @@
                     <p>对比 AI 原稿和当前稿，像审查代码一样确认改动。</p>
                   </div>
                 </div>
-                <div class="version-list" id="versionList"></div>
                 <div class="diff-panel" id="diffPanel"></div>
                 <section class="review-quality" aria-label="当前稿质检评分">
                   <div class="section-title-row">
@@ -160,6 +171,13 @@
                     <span>保存后即时检查</span>
                   </div>
                   <div class="inline-quality-panel" id="inlineQualityPanel"></div>
+                </section>
+                <section class="saved-version-panel" aria-label="保存版本选择">
+                  <div class="section-title-row">
+                    <h3>保存版本</h3>
+                    <span>选择满意版本</span>
+                  </div>
+                  <div class="version-list" id="versionList"></div>
                 </section>
               </section>
                 </div>
@@ -242,6 +260,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026053015"></script>
+    <script src="./src/runtime.js?v=2026053019"></script>
   </body>
 </html>

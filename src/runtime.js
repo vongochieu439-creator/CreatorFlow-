@@ -57,6 +57,9 @@
   var publishSelections = {};
   var toastTimer = null;
   var composeStep = "input";
+  var aiRendering = false;
+  var aiRenderingLabel = "\u56db\u4e2a\u5e73\u53f0";
+  var previewDirty = false;
   var viewMeta = {
     compose: ["\u521b\u4f5c\u53f0", "\u8f93\u5165\u4e3b\u7a3f\u5e76\u751f\u6210\u5e73\u53f0\u7a3f"],
     strategy: ["AI\u7b56\u7565", "\u5206\u6790\u5e73\u53f0\u89c4\u5f8b\u548c\u53c2\u8003\u6837\u672c"],
@@ -280,6 +283,7 @@
     var activePlatform = getSelectedPlatform();
     var activeDraft = makeDraft(activePlatform, input);
     renderComposeStep();
+    renderTaskStatus(activeDraft);
     renderPlatformCards(input);
     renderStrategyBoard(input);
     renderPreview(activeDraft);
@@ -294,6 +298,46 @@
     renderDiffPanel(activeDraft);
     renderInlineQuality(activeDraft);
     renderPublishLog();
+  }
+
+  function renderTaskStatus(draft) {
+    var status = byId("taskStatus");
+    var mask = byId("renderMask");
+    if (!status || !mask) return;
+    var qualityBusy = Boolean(qualityLoading[draft.platform.id]);
+    var className = "task-status";
+    var message = "\u5f53\u524d\u65e0\u540e\u53f0\u4efb\u52a1\uff0c\u53ef\u4ee5\u7f16\u8f91\u7a3f\u4ef6\u3002";
+
+    if (aiRendering) {
+      className += " is-blocking";
+      message = "\u667a\u80fd\u4f18\u5316\u4e2d\uff1a\u6b63\u5728\u91cd\u5199" + aiRenderingLabel + "\u7a3f\u4ef6\uff0c\u5efa\u8bae\u7a0d\u7b49\u518d\u7f16\u8f91\u3002";
+    } else if (previewDirty) {
+      className += " is-warning";
+      message = "\u5f53\u524d\u7a3f\u6709\u672a\u4fdd\u5b58\u4fee\u6539\uff1a\u53ef\u7ee7\u7eed\u7f16\u8f91\uff0c\u70b9\u51fb\u4fdd\u5b58\u540e\u4f1a\u91cd\u65b0 AI \u8d28\u68c0\u3002";
+    } else if (qualityBusy) {
+      className += " is-working";
+      message = "AI\u8d28\u68c0\u4e2d\uff1a\u53ef\u4ee5\u7ee7\u7eed\u7f16\u8f91\uff0c\u4fdd\u5b58\u540e\u4f1a\u4ee5\u6700\u65b0\u7a3f\u91cd\u65b0\u8d28\u68c0\u3002";
+    } else {
+      var record = qualityResults[draft.platform.id];
+      if (record && record.result) {
+        className += " is-ready";
+        message = "AI\u8d28\u68c0\u5df2\u5b8c\u6210\uff1a\u53ef\u67e5\u770b\u8bc4\u5206\u5efa\u8bae\uff0c\u4e5f\u53ef\u7ee7\u7eed\u5fae\u8c03\u5e76\u4fdd\u5b58\u3002";
+      }
+      if (record && record.error) {
+        className += " is-warning";
+        message = "AI\u8d28\u68c0\u672a\u5b8c\u6210\uff1a\u8bf7\u68c0\u67e5 API \u914d\u7f6e\u6216\u91cd\u65b0\u8bc4\u5206\u3002";
+      }
+    }
+
+    status.className = className;
+    status.textContent = message;
+    if (aiRendering) {
+      var title = mask.querySelector("strong");
+      var copy = mask.querySelector("span");
+      if (title) title.textContent = "\u6b63\u5728\u667a\u80fd\u4f18\u5316" + aiRenderingLabel;
+      if (copy) copy.textContent = "\u4f18\u5316\u5b8c\u6210\u540e\u4f1a\u66f4\u65b0\u7a3f\u4ef6\uff0c\u5efa\u8bae\u7a0d\u7b49\u518d\u7f16\u8f91\u3002";
+    }
+    mask.classList.toggle("is-visible", aiRendering);
   }
 
   function renderComposeStep() {
@@ -322,34 +366,48 @@
     }, 360);
   }
 
+  function buildAiPlatformPayload(platformList) {
+    return platformList.map(function (platform) {
+      return {
+        id: platform.id,
+        name: platform.name,
+        profile: platform.profile,
+        maxTitle: platform.maxTitle,
+        lengthRange: [platform.minLength, platform.maxLength],
+      };
+    });
+  }
+
+  async function requestAiDrafts(platformList) {
+    var input = getInput();
+    var response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: input,
+        platforms: buildAiPlatformPayload(platformList),
+      }),
+    });
+    var data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "\u771f\u5b9e AI \u8bf7\u6c42\u5931\u8d25");
+    }
+    return data;
+  }
+
   async function callRealAi() {
+    aiRendering = true;
+    aiRenderingLabel = "\u56db\u4e2a\u5e73\u53f0";
+    previewDirty = false;
+    render();
     byId("realAiBtn").disabled = true;
-    byId("realAiBtn").textContent = "AI\u6e32\u67d3\u4e2d";
-    byId("generationState").textContent = "\u6b63\u5728\u7528 AI \u6e32\u67d3\u591a\u5e73\u53f0\u7a3f";
+    byId("realAiBtn").textContent = "\u4f18\u5316\u4e2d";
+    byId("generationState").textContent = "\u6b63\u5728\u667a\u80fd\u4f18\u5316\u591a\u5e73\u53f0\u7a3f";
 
     try {
       var input = getInput();
-      var response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: input,
-          platforms: platforms.map(function (platform) {
-            return {
-              id: platform.id,
-              name: platform.name,
-              profile: platform.profile,
-              maxTitle: platform.maxTitle,
-              lengthRange: [platform.minLength, platform.maxLength],
-            };
-          }),
-        }),
-      });
-      var data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "\u771f\u5b9e AI \u8bf7\u6c42\u5931\u8d25");
-      }
-      applyAiResponse(data);
+      var data = await requestAiDrafts(platforms);
+      applyAiResponse(data, false);
       aiSource = "\u771f\u5b9e API";
       sampleSource = input.samples.length ? "\u7b56\u7565\u6765\u6e90\uff1a\u7528\u6237\u53c2\u8003\u6837\u672c + \u771f\u5b9e API" : "\u7b56\u7565\u6765\u6e90\uff1a\u5e73\u53f0\u753b\u50cf + \u771f\u5b9e API";
       analysisCount += 1;
@@ -361,8 +419,8 @@
       scoreDirty = false;
       render();
       requestAiQuality(makeDraft(getSelectedPlatform(), getInput()));
-      byId("generationState").textContent = "\u5df2\u5b8c\u6210 AI \u6e32\u67d3";
-      showToast("AI \u6e32\u67d3\u5b8c\u6210");
+      byId("generationState").textContent = "\u5df2\u5b8c\u6210\u667a\u80fd\u4f18\u5316";
+      showToast("\u667a\u80fd\u4f18\u5316\u5b8c\u6210");
     } catch (error) {
       aiSource = "\u672c\u5730\u6a21\u62df";
       sampleSource = "\u771f\u5b9e API \u672a\u751f\u6548\uff0c\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df";
@@ -372,12 +430,51 @@
       showToast(message);
       byId("generationState").textContent = "\u672a\u914d\u7f6e AI API\uff0c\u5f53\u524d\u4f7f\u7528\u672c\u5730\u6a21\u62df";
     } finally {
+      aiRendering = false;
       byId("realAiBtn").disabled = false;
-      byId("realAiBtn").textContent = "AI\u6e32\u67d3";
+      byId("realAiBtn").textContent = "\u4e00\u952e\u667a\u80fd\u4f18\u5316";
+      render();
     }
   }
 
-  function applyAiResponse(data) {
+  async function optimizeCurrentPlatform() {
+    var platform = getSelectedPlatform();
+    aiRendering = true;
+    aiRenderingLabel = platform.name;
+    previewDirty = false;
+    render();
+    byId("optimizeCurrentBtn").disabled = true;
+    byId("optimizeCurrentBtn").textContent = "\u4f18\u5316\u4e2d";
+    byId("generationState").textContent = "\u6b63\u5728\u4f18\u5316" + platform.name + "\u7a3f";
+
+    try {
+      var input = getInput();
+      var data = await requestAiDrafts([platform]);
+      applyAiResponse(data, true);
+      aiSource = "\u771f\u5b9e API";
+      sampleSource = input.samples.length ? "\u7b56\u7565\u6765\u6e90\uff1a\u7528\u6237\u53c2\u8003\u6837\u672c + \u771f\u5b9e API" : "\u7b56\u7565\u6765\u6e90\uff1a\u5e73\u53f0\u753b\u50cf + \u771f\u5b9e API";
+      generationCount += 1;
+      delete editedDrafts[platform.id];
+      delete qualityResults[platform.id];
+      publishSelections[platform.id] = "ai";
+      hasScored = true;
+      scoreDirty = false;
+      render();
+      requestAiQuality(makeDraft(platform, getInput()));
+      byId("generationState").textContent = "\u5df2\u5b8c\u6210" + platform.name + "\u667a\u80fd\u4f18\u5316";
+      showToast(platform.name + "\u7a3f\u5df2\u91cd\u65b0\u4f18\u5316");
+    } catch (error) {
+      showToast((error.message || "\u5355\u5e73\u53f0\u4f18\u5316\u5931\u8d25") + "\uff0c\u5df2\u4fdd\u7559\u5f53\u524d\u7a3f");
+      byId("generationState").textContent = platform.name + "\u4f18\u5316\u672a\u5b8c\u6210";
+    } finally {
+      aiRendering = false;
+      byId("optimizeCurrentBtn").disabled = false;
+      byId("optimizeCurrentBtn").textContent = "\u4f18\u5316\u5f53\u524d\u5e73\u53f0";
+      render();
+    }
+  }
+
+  function applyAiResponse(data, mergeDrafts) {
     var list = Array.isArray(data.platforms) ? data.platforms : [];
     var nextStrategies = {};
     var nextDrafts = {};
@@ -397,7 +494,7 @@
     }
 
     platformStrategies = Object.assign({}, platformStrategies, nextStrategies);
-    aiDrafts = nextDrafts;
+    aiDrafts = mergeDrafts ? Object.assign({}, aiDrafts, nextDrafts) : nextDrafts;
   }
 
   function normalizeStrategy(platformId, strategy) {
@@ -515,6 +612,7 @@
         '<span class="platform-stats">' + draft.metrics.length + ' \u5b57 · ' + draft.tags.length + ' \u6807\u7b7e</span>';
       button.addEventListener("click", function () {
         selectedId = platform.id;
+        previewDirty = false;
         render();
         if (generationCount && !qualityResults[platform.id]) {
           requestAiQuality(makeDraft(platform, getInput()));
@@ -536,6 +634,13 @@
     byId("previewMeta").innerHTML = '<span style="background:' + draft.platform.accent + '"></span>' + draft.platform.name + " \u53d1\u5e03\u7a3f";
     if (document.activeElement !== byId("previewTitle")) byId("previewTitle").textContent = current.title;
     if (document.activeElement !== byId("previewSummary")) byId("previewSummary").textContent = current.summary;
+    byId("previewTitle").setAttribute("contenteditable", aiRendering ? "false" : "true");
+    byId("previewSummary").setAttribute("contenteditable", aiRendering ? "false" : "true");
+    byId("previewBody").setAttribute("contenteditable", aiRendering ? "false" : "true");
+    byId("copyDraftBtn").disabled = aiRendering;
+    byId("saveEditBtn").disabled = aiRendering;
+    byId("optimizeCurrentBtn").disabled = aiRendering;
+    byId("restoreDraftBtn").disabled = aiRendering;
 
     var body = byId("previewBody");
     if (document.activeElement !== body) {
@@ -579,18 +684,34 @@
     var box = byId("versionList");
     box.innerHTML = "";
     if (!versions.length) {
-      box.innerHTML = '<p class="empty-state">\u6682\u65e0\u624b\u52a8\u7248\u672c</p>';
+      box.innerHTML = '<p class="empty-state">\u6682\u65e0\u4fdd\u5b58\u7248\u672c\u3002\u5728\u5de6\u4fa7\u7f16\u8f91\u5e73\u53f0\u7a3f\u540e\uff0c\u70b9\u51fb\u300c\u4fdd\u5b58\u5f53\u524d\u7248\u672c\u300d\u5373\u53ef\u5728\u8fd9\u91cc\u6311\u9009\u3002</p>';
       return;
     }
     versions.slice(0, 5).forEach(function (version, index) {
-      var item = document.createElement("button");
-      item.type = "button";
+      var item = document.createElement("article");
+      var textLength = version.parts.body.join("").length;
+      var tagCount = version.parts.tags.length;
       item.className = "version-item";
-      item.innerHTML = '<span>' + (version.label || ("v" + (versions.length - index))) + " · " + version.time + '</span><strong>' + version.title + '</strong>';
-      item.addEventListener("click", function () {
+      item.innerHTML =
+        '<div class="version-item-main">' +
+        '<span>' + (version.label || ("v" + (versions.length - index))) + " · " + version.time + '</span>' +
+        '<strong>' + escapeHtml(version.title) + '</strong>' +
+        '<small>' + textLength + ' \u5b57 · ' + tagCount + ' \u6807\u7b7e</small>' +
+        '</div>' +
+        '<div class="version-actions">' +
+        '<button class="secondary-button mini-button" type="button" data-action="use">\u4f7f\u7528\u6b64\u7248\u672c</button>' +
+        '<button class="ghost-button mini-button" type="button" data-action="publish">\u8bbe\u4e3a\u53d1\u5e03\u7248</button>' +
+        '</div>';
+      item.querySelector('[data-action="use"]').addEventListener("click", function () {
         editedDrafts[draft.platform.id] = cloneParts(version.parts);
+        previewDirty = false;
         render();
-        showToast("\u5df2\u56de\u9000\u5230\u5386\u53f2\u7248\u672c");
+        showToast("\u5df2\u5207\u6362\u5230" + (version.label || "\u5386\u53f2\u7248\u672c"));
+      });
+      item.querySelector('[data-action="publish"]').addEventListener("click", function () {
+        publishSelections[draft.platform.id] = version.id;
+        render();
+        showToast("\u5df2\u5c06" + (version.label || "\u5386\u53f2\u7248\u672c") + "\u8bbe\u4e3a\u53d1\u5e03\u7248");
       });
       box.appendChild(item);
     });
@@ -684,8 +805,13 @@
       return;
     }
 
+    if (previewDirty && draft.platform.id === selectedId) {
+      panel.innerHTML = '<p class="score-stale">\u5f53\u524d\u7a3f\u6709\u672a\u4fdd\u5b58\u4fee\u6539\u3002AI \u8d28\u68c0\u4e0d\u4f1a\u5728\u8f93\u5165\u4e2d\u53cd\u590d\u6d88\u8017 API\uff0c\u70b9\u51fb\u300c\u4fdd\u5b58\u5f53\u524d\u7248\u672c\u300d\u540e\u4f1a\u81ea\u52a8\u91cd\u65b0\u8d28\u68c0\u3002</p>';
+      return;
+    }
+
     if (qualityLoading[draft.platform.id]) {
-      panel.innerHTML = '<p class="score-stale">AI \u8d28\u68c0\u4e2d\uff0c\u6b63\u5728\u5206\u6790\u5e73\u53f0\u5339\u914d\u3001\u98ce\u9669\u548c\u6539\u8fdb\u5efa\u8bae...</p>';
+      panel.innerHTML = '<p class="score-stale">AI \u8d28\u68c0\u4e2d\uff1a\u6b63\u5728\u5206\u6790\u5e73\u53f0\u5339\u914d\u3001\u98ce\u9669\u548c\u6539\u8fdb\u5efa\u8bae\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u7f16\u8f91\uff0c\u4fdd\u5b58\u540e\u4f1a\u4ee5\u6700\u65b0\u7248\u91cd\u65b0\u8d28\u68c0\u3002</p>';
       return;
     }
 
@@ -967,6 +1093,7 @@
       byId("generationBanner").classList.remove("is-working");
       hasScored = true;
       composeStep = "draft";
+      previewDirty = false;
       render();
       requestAiQuality(makeDraft(getSelectedPlatform(), getInput()));
       showToast(analysisCount ? "\u5df2\u57fa\u4e8e AI \u5e73\u53f0\u7b56\u7565\u751f\u6210\u7a3f\u4ef6" : "\u5df2\u751f\u6210\u516c\u4f17\u53f7\u3001\u77e5\u4e4e\u3001B\u7ad9\u3001\u5c0f\u7ea2\u4e66\u7a3f\u4ef6");
@@ -1131,6 +1258,7 @@
       return;
     }
     editedDrafts[platform.id] = cloneParts(parts);
+    previewDirty = false;
     if (!draftVersions[platform.id]) draftVersions[platform.id] = [];
     var versionId = "v_" + Date.now() + "_" + Math.random().toString(16).slice(2);
     var versionLabel = "v" + (draftVersions[platform.id].length + 1);
@@ -1152,6 +1280,7 @@
   function restoreAiDraft() {
     var platform = getSelectedPlatform();
     delete editedDrafts[platform.id];
+    previewDirty = false;
     render();
     requestAiQuality(makeDraft(platform, getInput()));
     showToast("\u5df2\u6062\u590d" + platform.name + " AI \u7248\u672c");
@@ -1175,6 +1304,8 @@
     analysisCount = 0;
     hasScored = false;
     scoreDirty = false;
+    previewDirty = false;
+    aiRendering = false;
     qualityResults = {};
     qualityLoading = {};
     platformStrategies = {};
@@ -1214,13 +1345,23 @@
     byId("generateBtn").addEventListener("click", generate);
     byId("analyzeBtn").addEventListener("click", analyzePlatformTrends);
     byId("realAiBtn").addEventListener("click", callRealAi);
+    byId("optimizeCurrentBtn").addEventListener("click", optimizeCurrentPlatform);
     byId("publishBtn").addEventListener("click", publishAll);
     byId("copyDraftBtn").addEventListener("click", copyCurrent);
     byId("exportBtn").addEventListener("click", exportAllDrafts);
     byId("saveEditBtn").addEventListener("click", saveManualEdit);
     byId("restoreDraftBtn").addEventListener("click", restoreAiDraft);
+    ["previewTitle", "previewSummary", "previewBody"].forEach(function (id) {
+      byId(id).addEventListener("input", function () {
+        if (aiRendering) return;
+        previewDirty = true;
+        renderTaskStatus(makeDraft(getSelectedPlatform(), getInput()));
+        renderInlineQuality(makeDraft(getSelectedPlatform(), getInput()));
+      });
+    });
     byId("backToInputBtn").addEventListener("click", function () {
       composeStep = "input";
+      previewDirty = false;
       render();
       showToast("\u5df2\u8fd4\u56de\u539f\u59cb\u5185\u5bb9\u8f93\u5165");
     });
