@@ -64,30 +64,30 @@
   var viewMeta = {
     compose: ["\u521b\u4f5c\u53f0", "\u8f93\u5165\u4e3b\u7a3f\u5e76\u751f\u6210\u5e73\u53f0\u7a3f"],
     strategy: ["AI\u7b56\u7565", "\u5206\u6790\u5e73\u53f0\u89c4\u5f8b\u548c\u53c2\u8003\u6837\u672c"],
-    publish: ["\u53d1\u5e03\u4ea4\u4ed8", "\u5bfc\u51fa\u7a3f\u4ef6\u3001\u6a21\u62df\u53d1\u5e03\u548c\u67e5\u770b\u901a\u9053"],
+    publish: ["\u53d1\u5e03\u4ea4\u4ed8", "\u5bfc\u51fa\u7a3f\u4ef6\u3001\u771f\u5b9e\u901a\u9053\u6295\u9012\u548c\u67e5\u770b\u8bb0\u5f55"],
   };
 
   var publishers = {
     wechat: {
-      current: "MockPublisher",
+      current: "WeChatDraftConnector / WebhookPublisher",
       future: "\u516c\u4f17\u53f7\u8349\u7a3f\u7bb1 API",
       mode: "\u8349\u7a3f\u7bb1",
       note: "\u5148\u751f\u6210\u8349\u7a3f\uff0c\u518d\u7531\u8fd0\u8425\u4eba\u5458\u786e\u8ba4\u53d1\u5e03\u3002",
     },
     zhihu: {
-      current: "MockPublisher",
+      current: "WebhookPublisher / ManualPublisher",
       future: "\u6388\u6743\u53d1\u5e03 / \u534a\u81ea\u52a8\u590d\u5236",
       mode: "\u534a\u81ea\u52a8",
       note: "\u4fdd\u7559\u4eba\u5de5\u786e\u8ba4\uff0c\u907f\u514d\u5e73\u53f0\u6743\u9650\u548c\u98ce\u63a7\u95ee\u9898\u3002",
     },
     bilibili: {
-      current: "MockPublisher",
+      current: "WebhookPublisher / CreatorCenterPackage",
       future: "\u521b\u4f5c\u4e2d\u5fc3\u6295\u7a3f\u6d41\u7a0b",
       mode: "\u7a3f\u4ef6\u5305",
       note: "\u53ef\u5bf9\u63a5\u89c6\u9891\u7d20\u6750\u3001\u7b80\u4ecb\u3001\u6807\u7b7e\u548c\u65f6\u95f4\u8f74\u3002",
     },
     xiaohongshu: {
-      current: "MockPublisher",
+      current: "WebhookPublisher / ManualPublisher",
       future: "\u5206\u4eab\u53d1\u5e03 / \u534a\u81ea\u52a8\u53d1\u5e03",
       mode: "\u5206\u4eab\u5f0f",
       note: "\u5efa\u8bae\u5148\u5bfc\u51fa\u53d1\u5e03\u5305\uff0c\u518d\u8fdb\u5165\u5e73\u53f0\u786e\u8ba4\u3002",
@@ -1172,7 +1172,7 @@
     var total = platforms.length;
     var latest = publishRecords.slice(0, total);
     var published = latest.filter(function (record) {
-      return record.status === "\u5df2\u6a21\u62df\u53d1\u5e03";
+      return record.status.indexOf("\u5df2\u63d0\u4ea4") === 0 || record.status.indexOf("\u5df2\u53d1\u5e03") === 0;
     }).length;
     var publishing = latest.filter(function (record) {
       return record.status === "\u53d1\u5e03\u4e2d";
@@ -1256,7 +1256,8 @@
       item.innerHTML =
         '<div><strong>' + platform.name + '</strong><span>' + publisher.mode + '</span></div>' +
         '<p>\u5f53\u524d\uff1a' + publisher.current + '</p>' +
-        '<p>\u53ef\u6269\u5c55\uff1a' + publisher.future + '</p>';
+        '<p>\u771f\u5b9e\u63a5\u5165\uff1a' + publisher.future + '</p>' +
+        '<p>' + publisher.note + '</p>';
       box.appendChild(item);
     });
   }
@@ -1271,7 +1272,15 @@
     publishRecords.slice(0, 8).forEach(function (record) {
       var item = document.createElement("div");
       item.className = "log-item";
-      item.innerHTML = '<span class="log-platform">' + record.platform + "</span><span>" + record.title + '</span><strong>' + record.status + '</strong><em>' + record.version + " · " + record.publisher + '</em>';
+      item.innerHTML =
+        '<span class="log-platform">' + record.platform + "</span>" +
+        "<span>" + record.title + "</span>" +
+        "<strong>" + record.status + "</strong>" +
+        "<em>" + record.version + " · " + record.publisher + (record.externalId ? " · " + record.externalId : "") + (record.message ? " · " + record.message : "") + "</em>" +
+        '<button class="ghost-button mini-button log-copy-btn" type="button">\u590d\u5236\u5f85\u53d1\u5e03\u7a3f</button>';
+      item.querySelector(".log-copy-btn").addEventListener("click", function () {
+        copyText(record.body || record.title, "\u5df2\u590d\u5236" + record.platform + "\u5f85\u53d1\u5e03\u7a3f");
+      });
       box.appendChild(item);
     });
   }
@@ -1305,16 +1314,20 @@
     }, 250);
   }
 
-  function publishAll() {
+  async function publishAll() {
     var input = getInput();
     var created = [];
+    var payloadItems = [];
+    byId("publishBtn").disabled = true;
+    byId("publishBtn").textContent = "\u6295\u9012\u4e2d";
     platforms.forEach(function (platform) {
       var draft = makeDraft(platform, input);
       var parts = getPublishParts(platform, draft);
       var record = {
+        platformId: platform.id,
         platform: platform.name,
         title: parts.title,
-        status: "\u53d1\u5e03\u4e2d",
+        status: "\u6295\u9012\u4e2d",
         publisher: publishers[platform.id].current,
         channel: publishers[platform.id].future,
         version: getPublishLabel(platform.id),
@@ -1322,25 +1335,75 @@
       };
       created.push(record);
       publishRecords.unshift(record);
+      payloadItems.push({
+        platformId: platform.id,
+        platformName: platform.name,
+        version: record.version,
+        draft: cloneParts(parts),
+      });
     });
+    renderPublishSummary();
     renderPublishLog();
-    showToast("\u6b63\u5728\u901a\u8fc7 MockPublisher \u6a21\u62df\u5e73\u53f0\u53d1\u5e03\u901a\u9053");
-    window.setTimeout(function () {
+    showToast("\u6b63\u5728\u6295\u9012\u5230\u53d1\u5e03\u7f51\u5173");
+
+    try {
+      var response = await apiFetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: payloadItems }),
+      });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.error || "\u53d1\u5e03\u7f51\u5173\u8bf7\u6c42\u5931\u8d25");
+      applyPublishResults(created, data.items || []);
+      renderPublishSummary();
+      renderPublishLog();
+      var realCount = created.filter(function (record) {
+        return record.status.indexOf("\u5df2\u63d0\u4ea4") === 0;
+      }).length;
+      showToast(realCount ? "\u5df2\u63d0\u4ea4 " + realCount + " \u4e2a\u771f\u5b9e\u53d1\u5e03\u901a\u9053" : "\u672a\u914d\u7f6e\u771f\u5b9e\u53d1\u5e03\u51ed\u8bc1\uff0c\u5df2\u8f6c\u4e3a\u5f85\u4eba\u5de5\u53d1\u5e03");
+    } catch (error) {
       created.forEach(function (record) {
-        record.status = "\u5df2\u6a21\u62df\u53d1\u5e03";
+        record.status = "\u53d1\u5e03\u5931\u8d25";
+        record.publisher = "PublishGateway";
+        record.message = error.message || "\u53d1\u5e03\u5931\u8d25";
       });
       renderPublishSummary();
       renderPublishLog();
-      showToast("\u5df2\u5b8c\u6210 4 \u4e2a\u5e73\u53f0\u7684\u6a21\u62df\u53d1\u5e03");
-    }, 650);
+      showToast((error.message || "\u53d1\u5e03\u5931\u8d25") + "\uff0c\u8bf7\u68c0\u67e5\u540e\u7aef\u670d\u52a1");
+    } finally {
+      byId("publishBtn").disabled = false;
+      byId("publishBtn").textContent = "\u63d0\u4ea4\u53d1\u5e03";
+    }
+  }
+
+  function applyPublishResults(records, results) {
+    records.forEach(function (record) {
+      var result = results.find(function (item) {
+        return item.platformId === record.platformId;
+      });
+      if (!result) {
+        record.status = "\u672a\u8fd4\u56de";
+        record.publisher = "PublishGateway";
+        record.message = "\u53d1\u5e03\u7f51\u5173\u672a\u8fd4\u56de\u8be5\u5e73\u53f0\u7ed3\u679c";
+        return;
+      }
+      record.status = result.status || (result.ok ? "\u5df2\u63d0\u4ea4\u771f\u5b9e\u901a\u9053" : "\u5f85\u4eba\u5de5\u53d1\u5e03");
+      record.publisher = result.publisher || record.publisher;
+      record.message = result.message || "";
+      record.externalId = result.externalId || "";
+    });
   }
 
   function copyCurrent() {
     var draft = makeDraft(getSelectedPlatform(), getInput());
     var value = getEffectiveDraftText(draft);
+    copyText(value, "\u5df2\u590d\u5236\u5f53\u524d\u53d1\u5e03\u7a3f");
+  }
+
+  function copyText(value, successMessage) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(value).then(function () {
-        showToast("\u5df2\u590d\u5236\u5f53\u524d\u53d1\u5e03\u7a3f");
+        showToast(successMessage);
       });
     } else {
       showToast("\u5f53\u524d\u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u81ea\u52a8\u590d\u5236");

@@ -74,6 +74,11 @@ function createServer() {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/publish") {
+      await handlePublish(req, res);
+      return;
+    }
+
     serveStatic(url.pathname, res);
   } catch (error) {
     sendJson(res, 500, { error: error.message });
@@ -123,6 +128,187 @@ async function handleCollect(req, res) {
   );
 
   sendJson(res, 200, { items });
+}
+
+async function handlePublish(req, res) {
+  const payload = await readJson(req);
+  const items = Array.isArray(payload.items) ? payload.items.slice(0, 8) : [];
+  if (!items.length) {
+    sendJson(res, 400, { error: "No publish items provided." });
+    return;
+  }
+
+  const results = await Promise.all(
+    items.map(async (item) => {
+      try {
+        return await publishItem(item);
+      } catch (error) {
+        return {
+          platformId: item.platformId,
+          platformName: item.platformName,
+          ok: false,
+          mode: "error",
+          publisher: "PublishGateway",
+          status: "发布失败",
+          message: error.message,
+        };
+      }
+    })
+  );
+
+  sendJson(res, 200, { items: results });
+}
+
+async function publishItem(item) {
+  const platformId = String(item.platformId || "");
+  if (platformId === "wechat") {
+    return publishWechatDraft(item);
+  }
+
+  const webhookUrl = getWebhookUrl(platformId);
+  if (webhookUrl) {
+    return publishToWebhook(item, webhookUrl);
+  }
+
+  return {
+    platformId,
+    platformName: item.platformName,
+    ok: false,
+    mode: "manual",
+    publisher: "ManualPublisher",
+    status: "待人工发布",
+    message: "该平台未配置官方发布凭证或 Webhook。已生成最终稿，可复制到平台后台确认发布。",
+  };
+}
+
+async function publishWechatDraft(item) {
+  const webhookUrl = getWebhookUrl("wechat");
+  const accessToken = process.env.WECHAT_ACCESS_TOKEN || "";
+  const thumbMediaId = process.env.WECHAT_THUMB_MEDIA_ID || "";
+
+  if (!accessToken && webhookUrl) {
+    return publishToWebhook(item, webhookUrl);
+  }
+
+  if (!accessToken || !thumbMediaId) {
+    return {
+      platformId: "wechat",
+      platformName: item.platformName,
+      ok: false,
+      mode: "draft",
+      publisher: "WeChatDraftConnector",
+      status: "待配置",
+      message: "公众号草稿箱需要 WECHAT_ACCESS_TOKEN 和 WECHAT_THUMB_MEDIA_ID。未配置时不会伪装成真实发布。",
+    };
+  }
+
+  const draft = item.draft || {};
+  const endpoint = `https://api.weixin.qq.com/cgi-bin/draft/add?access_token=${encodeURIComponent(accessToken)}`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      articles: [
+        {
+          title: String(draft.title || "").slice(0, 64),
+          author: process.env.WECHAT_AUTHOR || "CreatorFlow",
+          digest: String(draft.summary || "").slice(0, 120),
+          content: draftToWechatHtml(draft),
+          content_source_url: process.env.WECHAT_SOURCE_URL || "",
+          thumb_media_id: thumbMediaId,
+          need_open_comment: 0,
+          only_fans_can_comment: 0,
+        },
+      ],
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.errcode) {
+    return {
+      platformId: "wechat",
+      platformName: item.platformName,
+      ok: false,
+      mode: "draft",
+      publisher: "WeChatDraftConnector",
+      status: "发布失败",
+      message: data.errmsg || `公众号 API 返回 HTTP ${response.status}`,
+    };
+  }
+
+  return {
+    platformId: "wechat",
+    platformName: item.platformName,
+    ok: true,
+    mode: "draft",
+    publisher: "WeChatDraftConnector",
+    status: "已提交草稿箱",
+    externalId: data.media_id || "",
+    message: data.media_id ? `公众号草稿 media_id：${data.media_id}` : "已提交公众号草稿箱",
+  };
+}
+
+async function publishToWebhook(item, webhookUrl) {
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      source: "CreatorFlow",
+      platformId: item.platformId,
+      platformName: item.platformName,
+      version: item.version,
+      draft: item.draft,
+      createdAt: new Date().toISOString(),
+    }),
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    return {
+      platformId: item.platformId,
+      platformName: item.platformName,
+      ok: false,
+      mode: "webhook",
+      publisher: "WebhookPublisher",
+      status: "发布失败",
+      message: text.slice(0, 300) || `Webhook HTTP ${response.status}`,
+    };
+  }
+
+  return {
+    platformId: item.platformId,
+    platformName: item.platformName,
+    ok: true,
+    mode: "webhook",
+    publisher: "WebhookPublisher",
+    status: "已提交真实通道",
+    message: text.slice(0, 300) || "Webhook 已接收发布任务",
+  };
+}
+
+function getWebhookUrl(platformId) {
+  const key = `PUBLISH_WEBHOOK_${String(platformId || "").toUpperCase()}`;
+  return process.env[key] || process.env.PUBLISH_WEBHOOK_URL || "";
+}
+
+function draftToWechatHtml(draft) {
+  const body = Array.isArray(draft.body) ? draft.body : [];
+  const tags = Array.isArray(draft.tags) ? draft.tags : [];
+  return [
+    `<p>${escapeHtmlForServer(draft.summary || "")}</p>`,
+    ...body.map((line) => `<p>${escapeHtmlForServer(line)}</p>`),
+    tags.length ? `<p>${tags.map((tag) => `#${escapeHtmlForServer(tag)}`).join(" ")}</p>` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function escapeHtmlForServer(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 async function callModelJson(res, prompt, systemMessage) {

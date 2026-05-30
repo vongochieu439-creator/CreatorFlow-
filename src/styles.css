@@ -1583,6 +1583,14 @@ h4 {
   font-style: normal;
 }
 
+.log-copy-btn {
+  grid-column: 2;
+  justify-self: start;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .log-platform {
   color: var(--ink);
   font-weight: 800;
