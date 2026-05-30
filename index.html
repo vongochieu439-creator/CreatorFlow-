@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CreatorFlow 多平台内容发布助手</title>
-    <link rel="stylesheet" href="./src/styles.css?v=2026052915" />
+    <link rel="stylesheet" href="./src/styles.css?v=2026053015" />
   </head>
   <body>
     <div class="app-shell workspace-shell">
@@ -42,7 +42,8 @@
 
         <main class="view-stack">
           <section class="view-section is-active" id="view-compose" aria-label="创作台">
-            <div class="compose-grid">
+            <div class="compose-flow">
+              <div class="flow-step input-step is-active" id="inputStep">
               <section class="editor-panel" aria-label="内容输入区">
                 <div class="panel-heading">
                   <div>
@@ -93,11 +94,22 @@
                 </div>
 
                 <div class="editor-actions">
-                  <button class="primary-button" id="generateBtn" type="button">生成平台稿</button>
-                  <button class="secondary-button" id="realAiBtn" type="button">AI渲染</button>
-                  <span id="generationState" class="generation-state">等待生成</span>
+                  <button class="primary-button large-action" id="generateBtn" type="button">生成四个平台稿</button>
                 </div>
               </section>
+              </div>
+
+              <div class="flow-step draft-step" id="draftStep">
+                <div class="draft-toolbar">
+                  <button class="ghost-button" id="backToInputBtn" type="button">修改原始内容</button>
+                  <div>
+                    <strong>四个平台稿工作台</strong>
+                    <span id="generationState" class="generation-state">等待生成</span>
+                  </div>
+                  <button class="secondary-button" id="realAiBtn" type="button">AI渲染</button>
+                </div>
+
+                <div class="compose-grid">
 
               <section class="preview-panel focused-preview" aria-label="平台稿预览">
                 <div class="panel-heading compact preview-heading">
@@ -123,6 +135,14 @@
                   <div class="preview-body" id="previewBody" contenteditable="true" spellcheck="false"></div>
                   <div class="tag-list" id="previewTags"></div>
                 </article>
+
+                <section class="rewrite-panel" aria-label="AI改写说明">
+                  <div class="section-title-row">
+                    <h3>AI改写说明</h3>
+                    <span id="rewriteSource">等待生成</span>
+                  </div>
+                  <div class="rewrite-grid" id="rewriteExplanation"></div>
+                </section>
               </section>
 
               <section class="preview-panel review-panel" aria-label="版本审查">
@@ -134,7 +154,16 @@
                 </div>
                 <div class="version-list" id="versionList"></div>
                 <div class="diff-panel" id="diffPanel"></div>
+                <section class="review-quality" aria-label="当前稿质检评分">
+                  <div class="section-title-row">
+                    <h3>当前稿质检评分</h3>
+                    <span>保存后即时检查</span>
+                  </div>
+                  <div class="inline-quality-panel" id="inlineQualityPanel"></div>
+                </section>
               </section>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -195,6 +224,12 @@
                 <div class="publisher-grid" id="publisherGrid"></div>
               </section>
 
+              <section class="preview-panel publish-version-panel">
+                <h3>发布版本选择</h3>
+                <p class="panel-note">每个平台可选择 AI 当前稿或已保存的人工版本，导出和模拟发布都会使用这里的选择。</p>
+                <div class="publish-version-grid" id="publishVersionGrid"></div>
+              </section>
+
               <section class="preview-panel">
                 <h3>发布记录</h3>
                 <div class="publish-log" id="publishLog"></div>
@@ -207,6 +242,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="./src/runtime.js?v=2026052915"></script>
+    <script src="./src/runtime.js?v=2026053015"></script>
   </body>
 </html>
